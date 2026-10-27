@@ -1,0 +1,8 @@
+.env
+data/
+node_modules/
+*.log
+backups/
+_przed-audytem/
+_wersja-notatki/
+_wersja-tropy/
