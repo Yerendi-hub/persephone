@@ -1,4 +1,13 @@
-# Silence on the Persephone
+# Halloween Games
+
+A small self-hosted platform for live office games. The host picks a game in `/control`; until then phones and the shared screen show a neutral "starts soon" page. Each game downloads its own images only once it is chosen.
+
+- **Silence on the Persephone** — the room votes together on every step (`games/persephone/`). Below.
+- **The Pumpkin Case** — everybody solves five puzzles alone, then names the criminal (`games/pumpkin/`, see [docs/PUMPKIN.md](docs/PUMPKIN.md)).
+
+Code layout: `server.mjs` (platform: auth, players, nicknames, game selection, persistence, realtime) · `games/<id>/index.mjs` (rules of one game) · `public/app.js` (router) + `public/<id>.js` (views).
+
+## Silence on the Persephone
 
 A self-hosted, English-language, 20-minute interactive science-fiction detective horror for up to 200 participants. The room guides a robot through the silent ship by voting on every step, while the ship's AI explains away every clue. Only the final vote changes the ending (three endings).
 

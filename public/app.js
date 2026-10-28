@@ -1,50 +1,59 @@
-const app=document.querySelector('#app'),connection=document.querySelector('#connection');
-const mode=location.pathname.slice(1)||'home';let state,online=false,joining=false,joinError='',offset=0,source,polling,noticeTimer;
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const letters='ABCDEFGH'.split('');const pad=n=>String(n).padStart(2,'0');
-function notice(text){document.querySelector('#notice').textContent=text;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>document.querySelector('#notice').textContent='',7000);}
-async function post(url,data){const r=await fetch('/api/'+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const b=await r.json();if(!r.ok)throw Error(b.error);return b;}
-function setOnline(value){online=value;connection.textContent=value?'● LINK ONLINE':'○ RECONNECTING';connection.classList.toggle('offline',!value);}
-function receive(s){if(state&&state.run===s.run&&s.revision<state.revision)return;const changed=!state||state.run!==s.run||state.revision!==s.revision||!!state.script!==!!s.script||state.joined!==s.joined||!online;state=s;offset=s.serverNow-Date.now();setOnline(true);if(changed)render();}
-async function refresh(){try{const r=await fetch('/api/state');if(!r.ok)throw Error();receive(await r.json());}catch{setOnline(false);}}
-function connect(){source?.close();source=new EventSource('/api/events');source.onmessage=e=>receive(JSON.parse(e.data));source.onerror=()=>{setOnline(false);};clearInterval(polling);polling=setInterval(refresh,5000);}
+// Router and shared chrome: neutral lobby, game selection, nicknames, media preloading.
+import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost} from './lib.js';
+import * as persephone from './persephone.js';
+import * as pumpkin from './pumpkin.js';
+const VIEWS={persephone,pumpkin};
+const BRAND={null:['🎃','HALLOWEEN GAMES','THE OFFICE / 2026'],persephone:['P','PERSEPHONE','MISSION CONTROL / 2189'],pumpkin:['🎃','IMPERIAL DETECTIVES','THRONE ROOM / CASE 31-10']};
+const app=document.querySelector('#app');const mode=S.mode;let joining=false,joinError='';
 
-// ---- building blocks ----
-const img=name=>name?`<figure class="scene-img"><img src="/img/${esc(name)}.jpg" alt="" loading="eager"></figure>`:'';
-const orpheus=t=>t?`<div class="orpheus"><span class="who">ORPHEUS</span><p>“${esc(t)}”</p></div>`:'';
-function outcomeBlock(o){return `<div class="scene-top">${img(o.image)}<div class="scene-text"><div class="eyebrow">SCOUT found</div><h1>${esc(o.title)}</h1><p class="lede">${esc(o.text)}</p>${o.sealed?`<p class="sealed">${esc(o.sealed)}</p>`:''}</div></div>${orpheus(o.orpheus)}`;}
-function scene(){const c=state.content,o=state.poll?.outcome;
-  const head=`${state.paused?'<div class="paused">MISSION PAUSED · Your votes are safe.</div>':''}<div class="steps">PERSEPHONE / <b>${pad(state.scene)}</b> — ${pad(state.totalScenes)}</div>`;
-  if(o)return head+outcomeBlock(o);
-  return `${head}<div class="scene-top">${img(c.image)}<div class="scene-text"><div class="eyebrow">${esc(c.eyebrow)}</div><h1>${esc(c.title)}</h1><p class="lede">${esc(c.text)}</p></div></div>${orpheus(c.orpheus)}`;}
-function pollPanel(){const p=state.poll;if(!p)return state.finished?'':`<div class="panel"><div class="label">MISSION LINK</div><p>Stand by. Listen to Mission Control.</p></div>`;
-  const closed=p.status==='closed',open=p.status==='open',control=mode==='control';
-  const status=open?(state.paused?'PAUSED':'VOTING OPEN'):closed?'VOTING COMPLETE':'WAITING';
-  const body=closed?p.options.map((o,i)=>`<div class="result"><strong>${i===p.winner?'✓ ':''}${esc(o.label)}</strong><small>${p.counts[i]}</small><progress value="${p.counts[i]}" max="${Math.max(1,p.total)}"></progress></div>`).join('')
-    :p.options.map((o,i)=>`<button id="vote-${i}" class="option ${p.myVote===i?'selected':''}" data-vote="${i}" aria-pressed="${p.myVote===i}" ${mode!=='join'||!state.joined||!open||state.paused||!online?'disabled':''}><span class="letter">${letters[i]}</span>${esc(o.label)}${control&&state.clueNotes?` <span class="count">${esc(state.clueNotes[o.id])}</span>`:''}${control&&p.counts?` <span class="count">· ${p.counts[i]}</span>`:''}</button>`).join('');
-  return `<section class="panel ${p.final?'final':''}"><div class="label">${p.final?'THE LAST VOTE':'VOTE'}</div><p class="poll-title">${esc(p.question)}</p><div class="statusline"><span>${status}</span><span class="timer" id="timer"></span></div>${body}${closed?'':`<p class="muted">${p.total} / ${state.participants} votes${p.myVote!==null&&open?` · Your vote: ${letters[p.myVote]}`:''}${p.final?' · A tie means quarantine.':''}</p>`}</section>`;}
-function locker(){const f=(state.found||[]).filter(o=>o.id!==state.poll?.outcome?.id);if(!f.length)return '';
-  return `<section class="panel locker"><div class="label">WHAT SCOUT FOUND · ${state.found.length} / 4</div>${f.map(o=>`<details><summary>${esc(o.title)}</summary><p>${esc(o.text)}</p>${orpheus(o.orpheus)}</details>`).join('')}</section>`;}
-function recap(){if(!state.recap)return '';return `<section class="panel"><div class="label">WHAT SCOUT FOUND</div><ol class="recap">${state.recap.map(x=>`<li>${esc(x)}</li>`).join('')}</ol><p class="lede">${esc(state.truth)}</p></section>`;}
-function login(){return `<form id="login" class="login panel"><div class="eyebrow">Authorized personnel</div><h1>Mission Control</h1><p>Sign in to guide the mission.</p><label for="password">Host password</label><input id="password" type="password" autocomplete="current-password" required minlength="12"><button class="primary">Enter control room →</button></form>`;}
-function render(){if(!state)return;const focused=document.activeElement?.id;const fields={};document.querySelectorAll('input,select').forEach(e=>fields[e.id]=e.value);
-  const openDetails=[...document.querySelectorAll('.locker details')].map(d=>d.open);
-  document.body.className=mode;const p=state.poll;
-  if(mode==='home')app.innerHTML=`<section class="hero"><div><div class="eyebrow">An interactive Halloween mission</div><h1>Silence on<br>the <em>Persephone.</em></h1><p class="lede">39 heartbeats. No people on the scan.<br>A ship computer that really wants to help.</p><div class="actions"><a class="button primary" href="/join">Join the mission ↗</a></div><div class="metrics"><div><strong>20</strong>MINUTES</div><div><strong>01</strong>ROBOT</div><div><strong>03</strong>ENDINGS</div></div><p class="muted">Science-fiction horror · No gore or jump scares</p></div><div class="orbital" aria-hidden="true"><div class="planet"></div><div class="orbit"></div><div class="orbit two"></div><div class="label">SIGNAL LOST / 47 DAYS</div></div></section>`;
-  if(mode==='join')app.innerHTML=`<div class="join">${state.script?`<div class="eyebrow">Host browser</div><h1>You are the host.</h1><div class="panel"><p>This browser is signed in as the host, so it cannot vote. To test voting, open this link in a private window or on another device.</p><a class="button" href="/control">Back to control room →</a></div>`:!state.joined?`<div class="eyebrow">Rescue ship Kestrel</div><h1>Silence on the Persephone</h1><div class="panel"><p>${esc(joinError||'Connecting…')}</p></div>`:state.finished?`${scene()}${state.myFinal?`<div class="panel"><div class="label">YOUR VOTE</div><p class="lede">${esc(state.myFinal)}</p></div>`:''}${recap()}`:`${scene()}${pollPanel()}${locker()}`}</div>`;
-  if(mode==='screen')app.innerHTML=!state.script?login():`<div class="layout"><section>${scene()}</section><aside class="stack">${state.finished?recap():pollPanel()}<div class="panel"><div class="label">JOIN THE MISSION</div><p>Open on your phone:</p><div class="join-url">${esc(state.joinUrl.replace(/^https?:\/\//,''))}</div><span class="muted">${state.participants} people connected</span></div></aside></div><button id="fullscreen" class="fullscreen">FULLSCREEN ⛶</button>`;
-  if(mode==='control')app.innerHTML=!state.script?login():`<div class="control-layout"><section>${scene()}<div class="panel"><h3>READ ALOUD</h3><p class="script">${esc(state.script)}</p></div>${state.finished?recap():''}</section><aside class="stack"><div class="panel"><div class="label">HOST CONSOLE</div><div class="statusline"><span>ELAPSED</span><span id="elapsed"></span></div><p class="muted">${state.participants} / ${state.maxParticipants} people · join link: ${esc(state.joinUrl)}</p>${p&&p.status==='ready'?`<label for="duration">Vote duration</label><select id="duration"><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select>`:''}<div class="actions"><button class="primary" data-action="next" ${state.finished||state.paused||(p&&p.status!=='closed')?'disabled':''}>${state.scene===0?'Start mission':'Next scene'} →</button>${p?.status==='ready'?'<button data-action="open">Open vote</button>':''}${p?.status==='open'?`<button data-action="close" ${state.paused?'disabled':''}>Close now</button>`:''}${state.scene>0&&!state.finished?`<button data-action="${state.paused?'resume':'pause'}">${state.paused?'Resume':'Pause mission'}</button>`:''}</div><p class="muted">The most-voted option wins. Ties choose the first option (final vote: quarantine). Linked doors: Medical ↔ Radio, Hangar ↔ Captain.</p><div class="actions"><a href="/screen" target="_blank" rel="noopener">Presentation ↗</a><button id="logout">Sign out</button></div><details class="danger-zone"><summary>New mission / reset</summary><p>Archives this run and clears all votes. Everyone re-joins automatically from the link.</p><label for="reset-confirm">Type RESET</label><input id="reset-confirm" autocomplete="off"><button class="danger" data-action="reset">Archive & reset</button></details></div>${pollPanel()}</aside></div>`;
-  for(const [id,value]of Object.entries(fields)){const e=document.getElementById(id);if(e&&(e.tagName==='INPUT'||[...e.options].some(o=>o.value===value)))e.value=value;}if(focused)document.getElementById(focused)?.focus({preventScroll:true});
-  document.querySelectorAll('.locker details').forEach((d,i)=>{if(openDetails[i])d.open=true;});
-  bind();clock();autoJoin();
+// Preload the chosen game's images, three at a time; the lobby absorbs the download so scenes switch instantly.
+const media={game:undefined,keep:[]};
+function preload(s){if(!['join','screen'].includes(mode)||media.game===s.game)return;media.game=s.game;const list=s.media??[];if(!list.length)return;
+  document.querySelector('#loader')?.remove();const el=document.createElement('div');el.id='loader';el.setAttribute('role','status');document.body.append(el);let n=0;
+  const draw=()=>{el.innerHTML=`<div><div class="label">LOADING MEDIA</div><p>${n} / ${list.length}</p><progress value="${n}" max="${list.length}"></progress></div>`;};draw();
+  const queue=[...list];const one=src=>new Promise(res=>{const i=new Image();i.onload=()=>{(i.decode?i.decode():Promise.resolve()).catch(()=>{}).finally(res);};i.onerror=res;i.src=src;media.keep.push(i);});
+  const worker=async()=>{while(queue.length){await one(queue.shift());n++;draw();}};
+  Promise.race([Promise.all([worker(),worker(),worker()]),new Promise(r=>setTimeout(r,20000))]).then(()=>{el.classList.add('done');setTimeout(()=>el.remove(),400);});}
+
+function chrome(){const s=S.state,[sig,name,sub]=BRAND[s.game]??BRAND.null;
+  document.body.className=`${mode} g-${s.game??'none'}`;document.title=s.gameTitle??'Halloween Games';
+  const b=document.querySelector('.brand');const html=`<span class="sigil">${esc(sig)}</span> ${esc(name)} <small>${esc(sub)}</small>`;if(b.innerHTML!==html)b.innerHTML=html;}
+const login=()=>`<form id="login" class="login panel"><div class="eyebrow">Authorized personnel</div><h1>Host login</h1><p>Sign in to run the game.</p><label for="password">Host password</label><input id="password" type="password" autocomplete="current-password" required minlength="12"><button class="primary">Enter →</button></form>`;
+const soon=extra=>`<section class="soon"><div class="eyebrow">Halloween at the office</div><h1>The Halloween game<br><em>starts soon.</em></h1><p class="lede">Grab your phone. When the host is ready, the game appears here by itself.</p>${extra??''}</section>`;
+const joinBox=()=>`<div class="panel joinbox"><div class="label">JOIN</div><p>Open on your phone:</p><div class="join-url">${esc(S.state.joinUrl.replace(/^https?:\/\//,''))}</div><span class="muted">${S.state.participants} people connected</span></div>`;
+function nameForm(){return `<div class="join"><div class="eyebrow">${esc(S.state.gameTitle)}</div><h1>Who are you, detective?</h1><form id="nameform" class="panel"><label for="nick">Your nickname (2–20 characters)</label><input id="nick" maxlength="20" autocomplete="nickname" required placeholder="e.g. Detective Pumpkin"><button class="primary">That’s me →</button><p class="muted">Your nickname can appear on the shared screen.</p></form></div>`;}
+function gamebar(){const s=S.state;return `<section class="panel gamebar"><div class="label">GAME</div><div class="actions">${s.games.map(g=>`<button data-select="${g.id}" class="${s.game===g.id?'primary':''}" title="${esc(g.tagline)}">${esc(g.title)}</button>`).join('')}<button data-select="" class="${s.game?'':'primary'}">“Starts soon” page</button></div><p class="muted">Changing the game starts it fresh; phones follow automatically. ${s.participants} connected.</p><div class="actions"><a href="/screen" target="_blank" rel="noopener">Presentation ↗</a><button id="logout">Sign out</button></div>${s.game?`<details class="danger-zone"><summary>Restart this game</summary><p>Archives this run and clears all progress. Everyone re-joins automatically.</p><label for="reset-confirm">Type RESET</label><input id="reset-confirm" autocomplete="off"><button class="danger" id="reset">Archive & restart</button></details>`:''}</section>`;}
+
+function render(){const s=S.state;if(!s)return;chrome();preload(s);const view=VIEWS[s.game];
+  if(mode==='home'){app.dataset.view='core';app.innerHTML=soon(`<div class="actions"><a class="button primary" href="/join">Join ↗</a></div>`);}
+  else if(mode==='join'){
+    if(isHost()){app.dataset.view='core';app.innerHTML=`<div class="join"><div class="eyebrow">Host browser</div><h1>You are the host.</h1><div class="panel"><p>This browser is signed in as the host, so it cannot play. To test as a player, open this link in a private window or on another device.</p><a class="button" href="/control">Back to the control room →</a></div></div>`;}
+    else if(!s.joined){app.dataset.view='core';app.innerHTML=`<div class="join">${soon(`<div class="panel"><p>${esc(joinError||'Connecting…')}</p></div>`)}</div>`;}
+    else if(!view){app.dataset.view='core';app.innerHTML=`<div class="join">${soon('<div class="panel"><div class="label">YOU ARE IN</div><p>Keep this page open. The game will start here.</p></div>')}</div>`;}
+    else if(s.needsName&&!s.name){if(app.dataset.view!=='name'){app.dataset.view='name';app.innerHTML=nameForm();}}
+    else view.render(app,'join');
+  }
+  else if(mode==='screen'){
+    if(!isHost()){app.dataset.view='core';app.innerHTML=login();}
+    else if(!view){app.dataset.view='core';app.innerHTML=`<div class="layout"><section>${soon()}</section><aside class="stack">${joinBox()}</aside></div>`;}
+    else view.render(app,'screen');
+    if(isHost()&&!document.querySelector('#fullscreen')){const f=document.createElement('button');f.id='fullscreen';f.className='fullscreen';f.textContent='FULLSCREEN ⛶';document.body.append(f);f.onclick=()=>(document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()).catch(()=>notice('Fullscreen is unavailable in this browser.'));}
+  }
+  else if(mode==='control'){
+    if(!isHost()){app.dataset.view='core';app.innerHTML=login();}
+    else{const keep=app.querySelector('#reset-confirm')?.value;app.dataset.view='core';app.innerHTML=`${gamebar()}<div id="gameview"></div>${view?'':`<div class="panel"><h3>READ ALOUD</h3><p class="script">${esc(s.script??'')}</p></div>`}`;
+      if(keep&&app.querySelector('#reset-confirm'))app.querySelector('#reset-confirm').value=keep;if(view)view.render(app.querySelector('#gameview'),'control');}
+  }
+  bind();autoJoin();
 }
-async function autoJoin(){if(mode!=='join'||!state||state.joined||state.script||joining||joinError)return;joining=true;try{await post('join',{});await refresh();connect();}catch(e){joinError=e.message;render();setTimeout(()=>{joinError='';refresh();},10000);}finally{joining=false;}}
 function bind(){
-  document.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();try{await post('login',{password:document.querySelector('#password').value});await refresh();connect();}catch(e){notice(e.message);}});
-  document.querySelector('#logout')?.addEventListener('click',async()=>{await post('logout',{});location.reload();});
-  document.querySelector('#fullscreen')?.addEventListener('click',()=>{(document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()).catch(()=>notice('Fullscreen is unavailable in this browser.'));});
-  document.querySelectorAll('[data-vote]').forEach(el=>el.addEventListener('click',async()=>{el.disabled=true;try{receive(await post('vote',{run:state.run,pollId:state.poll.id,option:Number(el.dataset.vote)}));}catch(e){notice(e.message);await refresh();}}));
-  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',async()=>{const data={action:el.dataset.action,run:state.run,stage:state.stage,commandId:crypto.randomUUID(),seconds:Number(document.querySelector('#duration')?.value),confirm:document.querySelector('#reset-confirm')?.value};el.disabled=true;try{receive(await post('control',data));}catch(e){notice(e.message);await refresh();}}));
+  app.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();try{await post('login',{password:app.querySelector('#password').value});await refresh();connect();}catch(e){notice(e.message);}});
+  app.querySelector('#nameform')?.addEventListener('submit',async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;try{receive(await post('name',{name:app.querySelector('#nick').value}));}catch(err){notice(err.message);btn.disabled=false;}});
+  app.querySelector('#logout')?.addEventListener('click',async()=>{await post('logout',{});location.reload();});
+  app.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{const g=el.dataset.select||null;if(g===S.state.game)return;if(S.state.game&&!confirm(`Switch game? The current game (${S.state.gameTitle}) starts over.`))return;control('select',{game:g});}));
+  app.querySelector('#reset')?.addEventListener('click',()=>control('reset',{confirm:app.querySelector('#reset-confirm').value}));
 }
-function clock(){if(!state)return;const p=state.poll;const left=p?.status==='open'?Math.max(0,Math.ceil((state.paused?p.remaining:p.deadline-(Date.now()+offset))/1000)):0;const t=document.querySelector('#timer');if(t)t.textContent=p?.status==='open'?`${left}s`:'';const elapsed=document.querySelector('#elapsed');if(elapsed){const sec=Math.floor((state.elapsedMs+(state.paused||state.finished?0:Date.now()+offset-state.serverNow))/1000);elapsed.textContent=`${pad(Math.floor(sec/60))}:${pad(sec%60)}`;}}
-setInterval(clock,250);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});refresh();connect();
+async function autoJoin(){const s=S.state;if(mode!=='join'||!s||s.joined||isHost()||joining||joinError)return;joining=true;try{await post('join',{});await refresh();connect();}catch(e){joinError=e.message;render();setTimeout(()=>{joinError='';refresh();},10000);}finally{joining=false;}}
+hooks.render=render;
+setInterval(()=>{const v=VIEWS[S.state?.game];if(v&&S.state)v.tick?.();},250);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});refresh();connect();

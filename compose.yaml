@@ -10,6 +10,7 @@ services:
       # nginx is always in front, so rate limits key on X-Forwarded-For
       TRUST_PROXY: '1'
       MAX_PARTICIPANTS: ${MAX_PARTICIPANTS:-200}
+      SIGNATURE_THRESHOLD: ${SIGNATURE_THRESHOLD:-0.9}
     volumes:
       - mission-data:/app/data
     mem_limit: 192m

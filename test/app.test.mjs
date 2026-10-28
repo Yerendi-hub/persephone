@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {createApp} from '../server.mjs';
-import {recap} from '../story.mjs';
+import {recap} from '../games/persephone/story.mjs';
 const password='test-password-only',secret='test-cookie-secret-32-characters-long';
 async function fixture(t){const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'persephone-'));let instance,base;
   async function start(){instance=createApp({password,secret,dataDir,publicUrl:'http://localhost:3000',noExit:true});await new Promise(r=>instance.server.listen(0,'127.0.0.1',r));base=`http://127.0.0.1:${instance.server.address().port}`;}
@@ -15,6 +15,7 @@ async function fixture(t){const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'pe
   async function control(action,extra={}){const s=(await req('/api/state',null,host)).body;return req('/api/control',{action,run:s.run,stage:s.stage,seconds:30,commandId:randomUUID(),...extra},host);}
   async function join(){return req('/api/join',{});}
   async function raw(route,body){const r=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost:3000'},body});return r.status;}
+  await control('select',{game:'persephone'});
   return {req,raw,control,join,host,get base(){return base;},dataDir,restart:async()=>{await instance.stop();await start();}};
 }
 const toVote=async f=>{await f.control('next');await f.control('next');await f.control('next');};
@@ -40,6 +41,8 @@ test('hangar first leaves medical and radio; host sees clue notes',async t=>{
   assert.equal((await f.req('/api/state',null,f.host)).body.clueNotes.hangar,'Clue 2');
   await vote(f,a,'hangar');await f.control('close');await f.control('next');
   assert.deepEqual((await f.req('/api/state')).body.poll.options.map(o=>o.id),['medical','radio']);
+  const st=(await f.req('/api/state')).body;assert.equal(st.content.image,'corridor-hangar');assert.equal(st.media.length,13);
+  assert.equal((await fetch(f.base+'/img/persephone/corridor-hangar.jpg')).status,200);
 });
 test('final vote: any tie or no votes means quarantine',async t=>{
   for(const plan of [['destroy','link'],[]]){
@@ -81,11 +84,11 @@ test('200 simultaneous voters, cap, exact totals, SSE and tie rule',async t=>{
 });
 test('deadline is enforced server-side and closed after recovery',async t=>{
   const f=await fixture(t);await toVote(f);await f.control('open');
-  await f.control('pause');let saved=JSON.parse(fs.readFileSync(path.join(f.dataDir,'state.json')));saved.polls.door1.remaining=50;fs.writeFileSync(path.join(f.dataDir,'state.json'),JSON.stringify(saved));await f.restart();await f.control('resume');await new Promise(r=>setTimeout(r,300));assert.equal((await f.req('/api/state')).body.poll.status,'closed');
+  await f.control('pause');let saved=JSON.parse(fs.readFileSync(path.join(f.dataDir,'state.json')));saved.g.polls.door1.remaining=50;fs.writeFileSync(path.join(f.dataDir,'state.json'),JSON.stringify(saved));await f.restart();await f.control('resume');await new Promise(r=>setTimeout(r,300));assert.equal((await f.req('/api/state')).body.poll.status,'closed');
 });
 test('images are served from a whitelist only',async t=>{
-  const f=await fixture(t);const ok=await fetch(f.base+'/img/medical.jpg');assert.equal(ok.status,200);assert.equal(ok.headers.get('content-type'),'image/jpeg');
-  assert.equal((await fetch(f.base+'/img/../server.mjs')).status,404);assert.equal((await fetch(f.base+'/img/nothing.jpg')).status,404);
+  const f=await fixture(t);const ok=await fetch(f.base+'/img/persephone/medical.jpg');assert.equal(ok.status,200);assert.equal(ok.headers.get('content-type'),'image/jpeg');
+  assert.equal((await fetch(f.base+'/img/persephone/../../server.mjs')).status,404);assert.equal((await fetch(f.base+'/img/persephone/nothing.jpg')).status,404);assert.equal((await fetch(f.base+'/img/medical.jpg')).status,404);
 });
 test('audit: malformed bodies are rejected without stopping the server',async t=>{
   const f=await fixture(t);

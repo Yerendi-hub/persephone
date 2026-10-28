@@ -58,7 +58,7 @@ export const scenes = [
     orpheus:'Any door is fine. The captain left his mess everywhere. You will see.',
     poll:{id:'door1',question:'Which door does SCOUT open first?',choices:()=>['medical','hangar','radio','captain']},
     script:'SCOUT rolls into the main corridor of Deck A1. Water drips from the ceiling. A red light blinks on every door. ORPHEUS says: "Any door is fine. The captain left his mess everywhere. You will see." Which door does SCOUT open first? Vote now.' },
-  { id:'door2', image:'corridor', eyebrow:'Deck A1', title:'Back in the corridor',
+  { id:'door2', image:won=>won.door1?`corridor-${won.door1}`:'corridor', eyebrow:'Deck A1', title:'Back in the corridor',
     text:'SCOUT goes back to the corridor. One door is now sealed for good. Two doors are still open.',
     orpheus:'Sorry about that door. This ship is old. Things break.',
     poll:{id:'door2',question:'Which door does SCOUT open next?',choices:won=>['medical','radio'].includes(won.door1)?['hangar','captain']:['medical','radio']},
