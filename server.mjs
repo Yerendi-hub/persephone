@@ -8,9 +8,10 @@ import {fileURLToPath} from 'node:url';
 import {fail} from './lib/util.mjs';
 import * as persephone from './games/persephone/index.mjs';
 import * as pumpkin from './games/pumpkin/index.mjs';
+import * as shadow from './games/shadow/index.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
-const GAMES={persephone,pumpkin};
+const GAMES={persephone,pumpkin,shadow};
 // Only images that actually exist are served and preloaded, so a game can ship before all art is ready.
 const file=n=>/\.(jpg|png)$/.test(n)?n:n+'.jpg';
 const MEDIA=Object.fromEntries(Object.values(GAMES).map(g=>[g.id,g.images.map(file).filter(n=>fs.existsSync(path.join(root,'games',g.id,'img',n)))]));
@@ -59,7 +60,7 @@ export function createApp(config={}) {
   function limit(req,key,max){const k=key+clientKey(req),v=attempts.get(k)??{n:0,until:Date.now()+60000};if(v.until<Date.now()){v.n=0;v.until=Date.now()+60000;}v.n++;attempts.set(k,v);if(v.n>max)fail(429,'Too many attempts. Try again in one minute.');}
   async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>16384)fail(413,'Request too large.');}let v;try{v=JSON.parse(raw||'{}');}catch{fail(400,'Invalid JSON.');}if(!v||typeof v!=='object'||Array.isArray(v))fail(400,'Expected a JSON object.');return v;}
   function respond(res,status,data){res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));}
-  const STATIC={'/':'index.html','/join':'index.html','/screen':'index.html','/control':'index.html','/app.js':'app.js','/lib.js':'lib.js','/persephone.js':'persephone.js','/pumpkin.js':'pumpkin.js','/style.css':'style.css'};
+  const STATIC={'/':'index.html','/join':'index.html','/screen':'index.html','/control':'index.html','/app.js':'app.js','/lib.js':'lib.js','/persephone.js':'persephone.js','/pumpkin.js':'pumpkin.js','/shadow.js':'shadow.js','/style.css':'style.css'};
   const archive=()=>fs.copyFileSync(file,path.join(dir,`archive-${state.run}.json`));
 
   const server=http.createServer(async(req,res)=>{

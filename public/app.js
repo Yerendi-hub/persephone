@@ -2,8 +2,9 @@
 import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost,armed,headerStatus} from './lib.js';
 import * as persephone from './persephone.js';
 import * as pumpkin from './pumpkin.js';
-const VIEWS={persephone,pumpkin};
-const BRAND={null:['🎃','HALLOWEEN GAMES','THE OFFICE / 2026'],persephone:['P','PERSEPHONE','MISSION CONTROL / 2189'],pumpkin:['🎃','IMPERIAL DETECTIVES','THRONE ROOM / CASE 31-10']};
+import * as shadow from './shadow.js';
+const VIEWS={persephone,pumpkin,shadow};
+const BRAND={null:['🎃','HALLOWEEN GAMES','THE OFFICE / 2026'],persephone:['P','PERSEPHONE','MISSION CONTROL / 2189'],pumpkin:['🎃','IMPERIAL DETECTIVES','THRONE ROOM / CASE 31-10'],shadow:['☾','NIGHT OF SHADOWS','STATION WRAITH / FESTIVAL NIGHT']};
 const app=document.querySelector('#app');const mode=S.mode;let joining=false,joinError='';
 
 // Preload the chosen game's images, three at a time; the lobby absorbs the download so scenes switch instantly.

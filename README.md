@@ -4,6 +4,7 @@ A small self-hosted platform for live office games. The host picks a game in `/c
 
 - **Silence on the Persephone** — the room votes together on every step (`games/persephone/`). Below.
 - **The Pumpkin Case** — everybody solves five puzzles alone, then names the criminal (`games/pumpkin/`, see [docs/PUMPKIN.md](docs/PUMPKIN.md)).
+- **Night of Shadows** — host-paced murder mystery with three room votes and a circle of accusations (`games/shadow/`, see [docs/SHADOW.md](docs/SHADOW.md)).
 
 Code layout: `server.mjs` (platform: auth, players, nicknames, game selection, persistence, realtime) · `games/<id>/index.mjs` (rules of one game) · `public/app.js` (router) + `public/<id>.js` (views).
 
