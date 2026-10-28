@@ -1,5 +1,5 @@
 // Router and shared chrome: neutral lobby, game selection, nicknames, media preloading.
-import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost} from './lib.js';
+import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost,armed,headerStatus} from './lib.js';
 import * as persephone from './persephone.js';
 import * as pumpkin from './pumpkin.js';
 const VIEWS={persephone,pumpkin};
@@ -50,10 +50,11 @@ function bind(){
   app.querySelector('#login')?.addEventListener('submit',async e=>{e.preventDefault();try{await post('login',{password:app.querySelector('#password').value});await refresh();connect();}catch(e){notice(e.message);}});
   app.querySelector('#nameform')?.addEventListener('submit',async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;try{receive(await post('name',{name:app.querySelector('#nick').value}));}catch(err){notice(err.message);btn.disabled=false;}});
   app.querySelector('#logout')?.addEventListener('click',async()=>{await post('logout',{});location.reload();});
-  app.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{const g=el.dataset.select||null;if(g===S.state.game)return;if(S.state.game&&!confirm(`Switch game? The current game (${S.state.gameTitle}) starts over.`))return;control('select',{game:g});}));
+  app.querySelectorAll('[data-select]').forEach(el=>{const g=el.dataset.select||null;if(g===S.state.game)return;if(S.state.game)armed(el,'Tap again: restart with this',()=>control('select',{game:g}));else el.addEventListener('click',()=>control('select',{game:g}));});
   app.querySelector('#reset')?.addEventListener('click',()=>control('reset',{confirm:app.querySelector('#reset-confirm').value}));
 }
 async function autoJoin(){const s=S.state;if(mode!=='join'||!s||s.joined||isHost()||joining||joinError)return;joining=true;try{await post('join',{});await refresh();connect();}catch(e){joinError=e.message;render();setTimeout(()=>{joinError='';refresh();},10000);}finally{joining=false;}}
 hooks.render=render;
-setInterval(()=>{const v=VIEWS[S.state?.game];if(v&&S.state)v.tick?.();},250);
+hooks.header=()=>VIEWS[S.state?.game]?.header?.()??null;
+setInterval(()=>{const v=VIEWS[S.state?.game];if(v&&S.state)v.tick?.();headerStatus();},250);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});refresh();connect();

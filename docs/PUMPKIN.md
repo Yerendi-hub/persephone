@@ -4,27 +4,26 @@ Second game on the platform. Everybody plays **alone on their own phone**; the s
 
 ## Running it
 
-1. `/control` → **GAME: The Pumpkin Case**. Phones leave the "starts soon" page, ask for a nickname and show the intro and the suspects.
-2. Read the intro (READ ALOUD). Choose the game time (default 12 min) → **Start the investigation**.
-3. Watch progress on the screen. **+2 min** if many people are close; **End now** stops everybody.
-4. After the time: **Show the results** (who accused whom) → **Reveal the criminal** (story, explanation, fastest correct detectives).
+1. `/control` → **GAME: The Pumpkin Case**. Phones ask for a nickname, then show "Wait for the Great Pumpkin Investigation to begin…".
+2. Read the intro (READ ALOUD). Choose the game time (default 12 min; the briefing counts too) → **Start the investigation**.
+3. Each phone pages through a briefing: Emperor with the pumpkin → smashed pumpkin → you are the detective → "meet 5 suspects" → one page per suspect with photo, motive and trait symbols.
+4. Puzzles, then the accusation. The page header shows the time left. **+2 min** if many people are close; **End now** (tap twice) stops everybody.
+5. After the time: **Show the results** → **Reveal the criminal**. Phones then show their evidence next to the suspect cards, with matching symbols highlighted.
 
-Switching back to Persephone or the "starts soon" page is one click in the GAME bar; each switch starts the chosen game fresh.
+No browser pop-ups anywhere: risky buttons (give up, end, switch game) ask "tap again"; the accusation asks "Are you sure? ✓ ✗" on the card itself.
 
 ## The puzzles (in this order)
 
 | # | Puzzle | Mechanic | Evidence |
 |---|---|---|---|
-| 1 | Detective registration | Draw any one-line shape, then draw it again to confirm (≥85% match, otherwise start again). | — |
-| 2 | The Throne Room lights | Memory: watch 3 symbols and repeat, then 5, then 7 (the first ones stay the same). 3 attempts. | 🥾 Muddy boot prints |
-| 3 | The forensic droid | Match 6 descriptions to 8 things (2 decoys: lemon, moon; Vader is a trap for "best emperor"). One check. | 🍪 Cookie crumbs |
-| 4 | The security terminal | Unlock pattern through the things starting with L: Lantern → Lightbulb → Lemon → Lollipop → Leaf (draws an L). 3 tries. Either direction counts. | 🧣 Cape fibers |
-| 5 | MOP-3 has no power | Turn pipe pieces to connect the battery to the droid. No limit. | ✨ Everything perfectly straight |
-| 6 | The Evidence Vault | Reproduce the signature from step 1, ≥90% match, 3 tries. | 📏 A long, straight scratch |
+| 1 | Your detective symbol | Draw any one-line shape. Currently drawn twice to confirm — set `confirmSymbol=false` in `games/pumpkin/content.mjs` to accept the first drawing. | — |
+| 2 | The Throne Room lights | Memory: 3 symbols, then 4, then 5 (the first ones stay). 3 attempts. | 🥾 Muddy boot prints |
+| 3 | The forensic droid | Two columns side by side: 6 descriptions, 8 things (decoys: lemon, moon; Vader is a trap). One check. Easiest puzzle → the weakest clue. | 🍪 Cookie crumbs |
+| 4 | The security terminal | Unlock pattern through the L-things: Lantern → Lightbulb → Lemon → Lollipop → Leaf. 3 tries. | 🧣 Cape fibers |
+| 5 | MOP-3 has no power | Board is blurred until **Ready**, then 10 seconds to connect battery and droid (`seconds` in content). One try. | ✨ Everything perfectly straight |
+| 6 | The Evidence Vault | Draw the symbol from step 1. 3 tries. | 📏 A long, straight scratch |
 
-Every puzzle except registration has "Give up — lose this evidence", so nobody gets stuck.
-
-**Signature threshold:** `SIGNATURE_THRESHOLD` in `.env` (default `0.9`). The score compares the shape after scaling and centring; size and position don't matter, drawing direction doesn't matter, but the start point and the shape do. A careful redraw scores ~92–99%, a sloppy one ~85–90%, a different shape under 40%. If people struggle at the event, set `0.85` and `docker compose up -d --force-recreate app`.
+**Symbol match:** 50% (`SIGNATURE_THRESHOLD`, default `0.5`; players never see the number). A different shape scores under 40%, the same shape drawn carelessly still passes.
 
 ## The solution (private)
 
@@ -40,21 +39,6 @@ Culprit: **Royal Guard Rex**. Every innocent suspect misses at least two of the 
 
 All suspects show five traits on their card (extra traits like lightsaber, blaster, wheels never match a clue), so "most icons" gives nothing away. A lost puzzle never tells the player which evidence they lost.
 
-## Images to generate (all optional)
+## Images
 
-Put JPEGs in `games/pumpkin/img/` with exactly these names; anything missing is simply not shown. 16:9 landscape unless noted, ~1600 px wide is plenty.
-
-| File | What it shows | Used |
-|---|---|---|
-| `intro.jpg` | The Throne Room, the Emperor, a smashed carved pumpkin on the floor | Lobby (phone + screen) |
-| `suspect-vader.jpg`, `suspect-tarkin.jpg`, `suspect-klynn.jpg`, `suspect-rex.jpg`, `suspect-mop3.jpg` | Portraits, **square** | Suspect cards |
-| `puzzle-register.jpg` | A detective badge / ID scanner | Registration |
-| `puzzle-lights.jpg` | Dark throne room, a glowing light panel | Memory |
-| `puzzle-droid.jpg` | A forensic droid scanning the floor | Matching |
-| `puzzle-terminal.jpg` | A locked security terminal | Pattern |
-| `puzzle-mop3.jpg` | A powered-down cleaning droid with a broken cable | Pipes |
-| `puzzle-vault.jpg` | An evidence vault door with a signature pad | Vault |
-| `clue-mud.jpg`, `clue-cookie.jpg`, `clue-cape.jpg`, `clue-neat.jpg`, `clue-pole.jpg` | Close-ups: muddy boot prints · cookie crumbs · cape fibers on a table edge · perfectly aligned polished cups/candles · a long straight scratch on a table | Evidence cards (shown small, 4:3 crop) |
-| `reveal.jpg` | Rex straightening the pumpkin a bit too much | Reveal |
-
-After adding images: commit, `git pull && docker compose up -d --build` on the server.
+In `games/pumpkin/img/` (missing files are simply not shown): `emperor` (lobby), `intro-pumpkin`, `intro-smashed`, `detective`, `who-guilty` (briefing; also the results screen), `suspect-vader|tarkin|klynn|rex|mop3`. Optional extras: `reveal`, `puzzle-register|lights|droid|terminal|mop3|vault`, `clue-mud|cookie|cape|neat|pole`.

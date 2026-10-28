@@ -40,14 +40,15 @@ test('full case: signature, puzzles in order, vault, accusation, reveal and lead
   const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ace'),b=await f.join('Bob');
   assert.equal((await f.act(a,{action:'sigRegister',points:circle()})).status,409,'not started');
   assert.equal((await f.control('start',{seconds:720})).status,200);
-  let s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'register');assert.equal(s.overview,undefined,'players do not get live stats');
+  let s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'story');
+  assert.equal((await f.act(a,{action:'sigRegister',points:circle()})).status,409,'briefing first');await f.act(a,{action:'story'});assert.equal(s.overview,undefined,'players do not get live stats');
   assert.equal((await f.act(a,{action:'sigRegister',points:[[.5,.5],[.51,.5],[.5,.51],[.5,.5],[.5,.5],[.5,.5],[.5,.5],[.5,.5]]})).status,400,'too small');
   await f.act(a,{action:'sigRegister',points:circle()});s=(await f.act(a,{action:'sigConfirm',points:zigzag})).body;
   assert.equal(s.me.lastSig.ok,false);assert.equal(s.me.step,'register');assert.equal(s.me.pending,false,'mismatch restarts registration');
   await f.act(a,{action:'sigRegister',points:circle()});s=(await f.act(a,{action:'sigConfirm',points:circle(.3,.1)})).body;assert.equal(s.me.lastSig.ok,true);assert.equal(s.me.step,'memory');
   assert.equal((await f.act(a,{action:'result',puzzle:'pattern',ok:true})).status,409,'order is enforced');
   for(const [puzzle,ok] of [['memory',true],['matching',true],['pattern',false],['pipes',true]])assert.equal((await f.act(a,{action:'result',puzzle,ok})).status,200);
-  s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'vault');assert.deepEqual(s.me.clues.map(c=>c.id),['mud','cookie','neat']);assert.deepEqual(s.me.lost.map(c=>c.puzzle),['pattern']);assert.equal(JSON.stringify(s.me).includes('Cape fibers'),false,'lost evidence stays secret');
+  s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'vault');assert.deepEqual(s.me.clues.map(c=>c.id),['mud','cookie','neat']);assert.deepEqual(s.me.evidence.map(e=>e.state),['won','won','lost','won','open']);assert.equal(JSON.stringify(s.me).includes('Cape fibers'),false,'lost evidence stays secret');
   s=(await f.act(a,{action:'sigVerify',points:zigzag})).body;assert.equal(s.me.sigLeft,2);assert.equal(s.me.lastSig.ok,false);
   s=(await f.act(a,{action:'sigVerify',points:circle(.2,-.1)})).body;assert.equal(s.me.lastSig.ok,true);assert.equal(s.me.step,'accuse');assert.equal(s.me.clues.length,4);
   assert.equal((await f.act(a,{action:'accuse',suspect:'yoda'})).status,400);
@@ -60,11 +61,11 @@ test('full case: signature, puzzles in order, vault, accusation, reveal and lead
   await f.control('reveal');s=(await f.req('/api/state',null,a)).body;assert.equal(s.reveal_.culprit,'rex');assert.equal(s.me.correct,true);assert.equal(s.overview.board[0].name,'Ace');assert.equal(s.overview.board[0].clues,4);
 });
 test('three failed vault attempts lose the clue; skipping is possible',async t=>{
-  const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ann');await f.control('start',{seconds:600});
+  const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ann');await f.control('start',{seconds:600});await f.act(a,{action:'story'});
   await f.act(a,{action:'sigRegister',points:circle()});await f.act(a,{action:'sigConfirm',points:circle()});
   for(const puzzle of ['memory','matching','pattern','pipes'])await f.act(a,{action:'result',puzzle,ok:false});
   for(let i=0;i<3;i++)await f.act(a,{action:'sigVerify',points:zigzag});
-  const s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'accuse');assert.equal(s.me.clues.length,0);assert.equal(s.me.lost.length,5);
+  const s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'accuse');assert.equal(s.me.clues.length,0);assert.ok(s.me.evidence.every(e=>e.state==='lost'&&!e.trait));
 });
 test('clue logic: any four clues point to Rex only',async()=>{
   const {suspects,clues,culprit}=await import('../games/pumpkin/content.mjs');const all=Object.values(clues).map(c=>c.trait);

@@ -1,11 +1,15 @@
 // "The Pumpkin Case" — all text the players and the host see. Simple English on purpose.
-export const intro={
-  title:'The Pumpkin Case',
-  eyebrow:'Imperial Detective Office',
-  text:'Tonight is the Galactic Pumpkin Carving Contest. The Emperor carved the most beautiful pumpkin in the galaxy. This morning, it was found on the floor of the Throne Room. Smashed.\n\nYou are Imperial Detectives. Five rooms are locked. Each one hides one piece of evidence. Open them, collect the evidence, and name the criminal.',
-  emperor:'Find who did this. Or I will find someone to blame.',
-  script:'Tonight is the Galactic Pumpkin Carving Contest. The Emperor carved the most beautiful pumpkin in the galaxy. This morning, it was found on the floor of the Throne Room. Smashed. The Emperor says: "Find who did this. Or I will find someone to blame." You are Imperial Detectives. Everybody plays alone, on your own phone. Five puzzles, five pieces of evidence. If you fail a puzzle, that evidence is lost — but four pieces are enough to solve the case. When you are done, name the criminal. The fastest correct detectives win the Emperor\'s respect.'
-};
+// Lobby before the host starts, then a briefing every player pages through on their own phone.
+export const lobby={image:'emperor',title:'The Great Pumpkin Investigation',text:'Wait for the Great Pumpkin Investigation to begin…'};
+export const story=[
+  {image:'intro-pumpkin',text:'Tonight is the Galactic Pumpkin Carving Contest. The Emperor carved the most beautiful pumpkin in the galaxy.'},
+  {image:'intro-smashed',text:'This morning, it was found on the floor of the Throne Room. Smashed.',quote:'Find who did this. Or I will find someone to blame.'},
+  {image:'detective',text:'You are an Imperial Detective. Five rooms are locked. Each one hides one piece of evidence. Open them, collect the evidence, and name the criminal.'},
+  {image:'who-guilty',text:'Now you will meet 5 suspects. Each of them has special marks — like muddy boots or cookie crumbs. Look at the symbols carefully: the evidence you find will show the same symbols.'}
+];
+export const script='Tonight is the Galactic Pumpkin Carving Contest. The Emperor carved the most beautiful pumpkin in the galaxy — and this morning it was found smashed. Everybody plays alone, on your own phone. First you read a short briefing and meet the five suspects. Then five puzzles, five pieces of evidence. If you fail a puzzle, that evidence is lost — but four pieces are enough. At the end, name the criminal. The fastest correct detectives win the Emperor\'s respect.';
+// Registration asks to draw the symbol twice. Set to false to accept the first drawing.
+export const confirmSymbol=true;
 
 // Trait icons. A clue matches every suspect who has that trait.
 export const traits={
@@ -33,13 +37,13 @@ export const culprit='rex';
 // Order of play. Each puzzle unlocks one clue.
 export const steps=['register','memory','matching','pattern','pipes','vault'];
 export const puzzles={
-  register:{title:'Detective registration',image:'puzzle-register',
-    text:'Every Imperial Detective needs a signature. Draw any shape with one finger, in one line. Then draw it again to confirm.\n\nRemember it well — what you draw and how you draw it. The Evidence Vault will ask for it at the end.'},
+  register:{title:'Your detective symbol',image:'puzzle-register',
+    text:'Every Imperial Detective has a secret symbol. Draw any shape with one finger, in one line. Remember it well — what you draw and how you draw it. The Evidence Vault will ask for it at the end.'},
   memory:{title:'The Throne Room lights',image:'puzzle-lights',clue:'mud',
-    text:'The Throne Room is dark. The light panel needs a code: a row of symbols. Watch the symbols, then tap them in the same order. First 3, then 5, then 7.',
-    symbols:['🎃','👻','🦇','💀','🕷️','🌙'],levels:[3,5,7],attempts:3},
+    text:'The Throne Room is dark. The light panel needs a code. Watch the symbols, then tap them in the same order. First 3, then 4, then 5.',
+    symbols:['🎃','👻','🦇','💀','🕷️','🌙'],levels:[3,4,5],attempts:3},
   matching:{title:'The forensic droid',image:'puzzle-droid',clue:'cookie',
-    text:'The forensic droid can identify anything — but its memory is scrambled. Match each description to the right thing. You can check only once.',
+    text:'The forensic droid’s memory is scrambled. Match each description to the right thing. You can check only once.',
     pairs:[['Round and orange','🎃 Pumpkin'],['Best emperor in the galaxy','Emperor Palpatine'],['Flies at night, sleeps upside down','🦇 Bat'],['Breathes very loudly','Darth Vader'],['White armor, misses every shot','Stormtrooper'],['Sweet and round, with chocolate chips','🍪 Cookie']],
     decoys:['🍋 Lemon','🌙 Moon']},
   pattern:{title:'The security terminal',image:'puzzle-terminal',clue:'cape',
@@ -47,11 +51,11 @@ export const puzzles={
     cells:[['🏮','Lantern'],['🎃','Pumpkin'],['🦇','Bat'],['💡','Lightbulb'],['🕯️','Candle'],['💀','Skull'],['🍋','Lemon'],['🍭','Lollipop'],['🍁','Leaf']],
     answer:[0,3,6,7,8],attempts:3},
   pipes:{title:'MOP-3 has no power',image:'puzzle-mop3',clue:'neat',
-    text:'The cleaning droid MOP-3 saw everything — but its power cable is broken. Tap the pieces to turn them. Connect the battery to the droid.',
+    text:'The cleaning droid MOP-3 saw everything — but its power cable is broken. Tap pieces to turn them and connect the battery to the droid. When you press Ready, you have 10 seconds.',seconds:10,
     // Bit mask per tile: 1 = up, 2 = right, 4 = down, 8 = left. Battery enters (0,0) from the left; the droid is right of (3,3).
     solution:[[12,5,10,6],[3,10,12,5],[6,9,5,7],[11,14,3,10]]},
   vault:{title:'The Evidence Vault',image:'puzzle-vault',clue:'pole',
-    text:'The Evidence Vault holds the last piece of evidence. Sign with your detective signature. You need a 90% match. You have 3 tries.'}
+    text:'The Evidence Vault holds the last piece of evidence. Draw your detective symbol to open it. You have 3 tries.'}
 };
 
 export const clues={
