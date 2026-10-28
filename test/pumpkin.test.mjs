@@ -39,9 +39,10 @@ test('nicknames: required, validated, unique, kept across game changes',async t=
 test('full case: signature, puzzles in order, vault, accusation, reveal and leaderboard',async t=>{
   const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ace'),b=await f.join('Bob');
   assert.equal((await f.act(a,{action:'sigRegister',points:circle()})).status,409,'not started');
-  assert.equal((await f.control('start',{seconds:720})).status,200);
-  let s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'story');
-  assert.equal((await f.act(a,{action:'sigRegister',points:circle()})).status,409,'briefing first');await f.act(a,{action:'story'});assert.equal(s.overview,undefined,'players do not get live stats');
+  assert.equal((await f.control('brief')).status,200);assert.equal((await f.act(a,{action:'sigRegister',points:circle()})).status,409,'no play during the briefing');
+  assert.equal((await f.control('page',{page:8})).status,200);assert.equal((await f.control('page',{page:9})).status,400);assert.equal((await f.req('/api/state',null,a)).body.brief,8);
+  assert.equal((await f.control('start',{seconds:300})).status,200);const st0=(await f.req('/api/state',null,a)).body;assert.ok(st0.endsAt-st0.startedAt===300000,'5 minutes start with the investigation');
+  let s=(await f.req('/api/state',null,a)).body;assert.equal(s.me.step,'register');assert.equal(s.overview,undefined,'players do not get live stats');
   assert.equal((await f.act(a,{action:'sigRegister',points:[[.5,.5],[.51,.5],[.5,.51],[.5,.5],[.5,.5],[.5,.5],[.5,.5],[.5,.5]]})).status,400,'too small');
   await f.act(a,{action:'sigRegister',points:circle()});s=(await f.act(a,{action:'sigConfirm',points:zigzag})).body;
   assert.equal(s.me.lastSig.ok,false);assert.equal(s.me.step,'register');assert.equal(s.me.pending,false,'mismatch restarts registration');
@@ -61,7 +62,7 @@ test('full case: signature, puzzles in order, vault, accusation, reveal and lead
   await f.control('reveal');s=(await f.req('/api/state',null,a)).body;assert.equal(s.reveal_.culprit,'rex');assert.equal(s.me.correct,true);assert.equal(s.overview.board[0].name,'Ace');assert.equal(s.overview.board[0].clues,4);
 });
 test('three failed vault attempts lose the clue; skipping is possible',async t=>{
-  const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ann');await f.control('start',{seconds:600});await f.act(a,{action:'story'});
+  const f=await fixture(t);await f.control('select',{game:'pumpkin'});const a=await f.join('Ann');await f.control('start',{seconds:600});
   await f.act(a,{action:'sigRegister',points:circle()});await f.act(a,{action:'sigConfirm',points:circle()});
   for(const puzzle of ['memory','matching','pattern','pipes'])await f.act(a,{action:'result',puzzle,ok:false});
   for(let i=0;i<3;i++)await f.act(a,{action:'sigVerify',points:zigzag});

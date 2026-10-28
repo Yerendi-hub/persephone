@@ -7,7 +7,7 @@ export const story=[
   {image:'detective',text:'You are an Imperial Detective. Five rooms are locked. Each one hides one piece of evidence. Open them, collect the evidence, and name the criminal.'},
   {image:'who-guilty',text:'Now you will meet 5 suspects. Each of them has special marks — like muddy boots or cookie crumbs. Look at the symbols carefully: the evidence you find will show the same symbols.'}
 ];
-export const script='Tonight is the Galactic Pumpkin Carving Contest. The Emperor carved the most beautiful pumpkin in the galaxy — and this morning it was found smashed. Everybody plays alone, on your own phone. First you read a short briefing and meet the five suspects. Then five puzzles, five pieces of evidence. If you fail a puzzle, that evidence is lost — but four pieces are enough. At the end, name the criminal. The fastest correct detectives win the Emperor\'s respect.';
+export const script='Welcome, detectives. Look at your phones and at the screen: I will read the briefing together with you. Then each of you investigates alone, for five minutes: five puzzles, five pieces of evidence. If you fail a puzzle, that evidence is lost — but four pieces are enough. At the end, name the criminal. The fastest correct detectives win the Emperor\'s respect.';
 // Registration asks to draw the symbol twice. Set to false to accept the first drawing.
 export const confirmSymbol=true;
 
@@ -47,7 +47,7 @@ export const puzzles={
     pairs:[['Round and orange','🎃 Pumpkin'],['Best emperor in the galaxy','Emperor Palpatine'],['Flies at night, sleeps upside down','🦇 Bat'],['Breathes very loudly','Darth Vader'],['White armor, misses every shot','Stormtrooper'],['Sweet and round, with chocolate chips','🍪 Cookie']],
     decoys:['🍋 Lemon','🌙 Moon']},
   pattern:{title:'The security terminal',image:'puzzle-terminal',clue:'cape',
-    text:'The security terminal is locked. A note on the screen says: "Only things that start with L. Connect them in order." Draw the line with your finger. You have 3 tries.',
+    text:'The security terminal is locked. Find the pattern and connect the symbols with one line. You have 3 tries.',
     cells:[['🏮','Lantern'],['🎃','Pumpkin'],['🦇','Bat'],['💡','Lightbulb'],['🕯️','Candle'],['💀','Skull'],['🍋','Lemon'],['🍭','Lollipop'],['🍁','Leaf']],
     answer:[0,3,6,7,8],attempts:3},
   pipes:{title:'MOP-3 has no power',image:'puzzle-mop3',clue:'neat',

@@ -1,7 +1,7 @@
 // View: "The Pumpkin Case" — solo puzzles on each phone; the shared screen shows the clock, progress and the reveal.
 import {S,esc,act,control,toTop,figure,mmss,now,armed} from './lib.js';
 
-const STEP_NAMES={story:'Briefing',register:'Detective symbol',memory:'Lights',matching:'Forensic droid',pattern:'Terminal',pipes:'MOP-3 power',vault:'Evidence vault',accuse:'Accusation'};
+const STEP_NAMES={register:'Detective symbol',memory:'Lights',matching:'Forensic droid',pattern:'Terminal',pipes:'MOP-3 power',vault:'Evidence vault',accuse:'Accusation'};
 const ORDER=['register','memory','matching','pattern','pipes','vault'];
 const shuffle=a=>{const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -10,7 +10,7 @@ const icon=t=>S.state.traits[t]?.icon??'?';
 const mem={};
 const load=(k,d)=>{try{const v=sessionStorage.getItem(k);return v===null?(mem[k]??d):JSON.parse(v);}catch{return mem[k]??d;}};
 const store=(k,v)=>{mem[k]=v;try{sessionStorage.setItem(k,JSON.stringify(v));}catch{}};
-const seenKey=()=>`pk-seen-${S.state.run}`,pageKey=()=>`pk-page-${S.state.run}`;
+const seenKey=()=>`pk-seen-${S.state.run}`;
 const seen=()=>new Set(load(seenKey(),[]));
 const markSeen=id=>store(seenKey(),[...seen(),id]);
 
@@ -108,11 +108,38 @@ function pipes(el,cfg,finish){
 const COMPONENTS={memory,matching,pattern,pipes};
 
 // ---------- player view ----------
-const storyPages=s=>[...s.story,...s.suspects.map(x=>({suspect:x}))];
-function storyHTML(s,i){const pages=storyPages(s),p=pages[i],last=i===pages.length-1;let body;
-  if(p.suspect){const x=p.suspect;body=`<div class="eyebrow">Suspect ${i-s.story.length+1} of ${s.suspects.length}</div>${figure(x.image,'story-img portrait-big')}<h1>${esc(x.name)}</h1><p class="lede">${esc(x.motive)}</p><ul class="traits">${x.traits.map(([t,l])=>`<li><span class="ti">${icon(t)}</span>${esc(l)}</li>`).join('')}</ul>`;}
+function briefingHTML(s){const i=s.brief,p=s.story[i];let body;
+  if(!p){const x=s.suspects[i-s.story.length];body=`<div class="eyebrow">Suspect ${i-s.story.length+1} of ${s.suspects.length}</div>${figure(x.image,'story-img portrait-big')}<h1>${esc(x.name)}</h1><p class="lede">${esc(x.motive)}</p><ul class="traits">${x.traits.map(([t,l])=>`<li><span class="ti">${icon(t)}</span>${esc(l)}</li>`).join('')}</ul>`;}
   else body=`${figure(p.image,'story-img')}<p class="lede story-text">${esc(p.text)}</p>${p.quote?`<div class="orpheus emperor"><span class="who">THE EMPEROR</span><p>“${esc(p.quote)}”</p></div>`:''}`;
-  return `<div class="join story"><div class="steps">BRIEFING <b>${i+1}</b> / ${pages.length}</div>${body}<div class="story-nav">${i>0?'<button type="button" id="st-back">← Back</button>':'<span></span>'}<button type="button" class="primary" id="st-next">${last?'Start the investigation →':'Next →'}</button></div></div>`;}
+  return `<div class="steps">BRIEFING <b>${i+1}</b> / ${s.pages}</div>${body}`;}
+
+// ---------- waiting game: Vader runs and collects cookies; tap to jump over pumpkins ----------
+const run={cookies:0,best:0};const BELLY=25;
+function runner(el){
+  el.innerHTML=`<section class="panel runner"><div class="label">WHILE YOU WAIT FOR EVERYONE</div><p>Collect cookies — Vader wants a full belly! Tap to jump over the pumpkins.</p><div class="belly"><span>BELLY</span><progress max="${BELLY}" value="0"></progress><b class="rc">0</b></div><canvas class="runcv" aria-label="Runner game"></canvas><p class="muted rmsg">Tap the game to start.</p></section>`;
+  const cv=el.querySelector('canvas'),ctx=cv.getContext('2d'),bar=el.querySelector('progress'),cnt=el.querySelector('.rc'),msg=el.querySelector('.rmsg');
+  const sprite=new Image();const src=(S.state.media||[]).find(m=>m.endsWith('/runner-vader.png'));if(src)sprite.src=src;
+  let W,H,ground,v,y,items,t,speed,state='idle',raf,last;
+  const fit=()=>{const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);ground=H-18;};
+  const reset=()=>{fit();v=0;y=0;items=[];t=0;speed=4.2;};
+  const VH=()=>Math.min(70,H*.42),VW=()=>VH()*191/240,X=30;
+  const belly=()=>{bar.value=Math.min(run.cookies,BELLY);cnt.textContent=run.cookies>=BELLY?`${run.cookies} 😋 FULL!`:String(run.cookies);};
+  const spawn=()=>{if(Math.random()<.45)items.push({k:'p',x:W+20,y:0});else items.push({k:'c',x:W+20,y:Math.random()<.5?0:55+Math.random()*30});};
+  function frame(now){if(!el.isConnected)return;raf=requestAnimationFrame(frame);const dt=Math.min(2.5,(now-(last??now))/16.7);last=now;
+    if(state==='run'){t+=dt;speed+=.0016*dt;v-=.75*dt;y=Math.max(0,y+v*dt);if(y===0)v=0;
+      if(t>(70-Math.min(30,speed*3))){t=0;spawn();}
+      for(const it of items)it.x-=speed*dt;items=items.filter(it=>it.x>-40&&!it.gone);
+      const vx=X,vy=ground-y-VH(),vw=VW(),vh=VH();
+      for(const it of items){const ix=it.x,iy=ground-it.y-26,hit=ix<vx+vw-14&&ix+24>vx+14&&iy<vy+vh-6&&iy+24>vy+8;
+        if(!hit)continue;if(it.k==='c'){it.gone=true;run.cookies++;belly();}else{state='over';run.best=Math.max(run.best,run.cookies);msg.textContent='Ouch, a pumpkin! Tap to run again. Your cookies stay in Vader’s belly.';}}}
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#2a3c46';ctx.fillRect(0,ground+2,W,2);
+    ctx.font='24px serif';ctx.textBaseline='top';for(const it of items)ctx.fillText(it.k==='c'?'🍪':'🎃',it.x,ground-it.y-26);
+    const h=VH(),w=VW(),bob=state==='run'&&y===0?Math.sin(now/70)*2:0;
+    if(sprite.complete&&sprite.naturalWidth)ctx.drawImage(sprite,X,ground-y-h+bob,w,h);else{ctx.fillStyle='#111';ctx.fillRect(X,ground-y-h,w,h);}}
+  const tap=e=>{e.preventDefault();if(state!=='run'){reset();state='run';msg.textContent='Tap to jump.';return;}if(y===0)v=12.5;};
+  cv.addEventListener('pointerdown',tap);reset();belly();raf=requestAnimationFrame(frame);
+}
+
 function distribution(s,big){const o=s.overview,total=Math.max(1,o.accused);return `<section class="panel"><div class="label">WHO DID THE DETECTIVES ACCUSE? · ${o.accused} ACCUSATIONS</div>${s.suspects.map(x=>{const n=o.counts[x.id]??0;return `<div class="result ${big?'big':''}"><strong>${esc(x.name)}</strong><small>${n} · ${Math.round(100*n/total)}%</small><progress value="${n}" max="${total}"></progress></div>`;}).join('')}</section>`;}
 function board(s){const b=s.overview.board;return `<section class="panel"><div class="label">FASTEST CORRECT DETECTIVES</div>${b.length?`<ol class="board">${b.map(x=>`<li><b>${esc(x.name)}</b><span>${mmss(x.ms)} · ${x.clues}/5 evidence</span></li>`).join('')}</ol>`:'<p>Nobody found the criminal. The Emperor is not amused.</p>'}</section>`;}
 function revealBlock(s){const r=s.reveal_,c=s.suspects.find(x=>x.id===r.culprit);return `${figure(r.image)||figure(c.image,'story-img portrait-big')}<div class="eyebrow">The criminal is…</div><h1>${esc(c.name)}</h1><p class="lede">${esc(r.text)}</p><div class="panel"><div class="label">HOW TO KNOW</div><p>${esc(r.explain)}</p></div>`;}
@@ -124,11 +151,11 @@ function joinHTML(s,me,showResult){
     return `<div class="join">${me.accused?`<div class="verdict ${me.correct?'good':'bad'}">${me.correct?`🎉 You were right, ${name}!`:`✖ Not this time, ${name}. You accused ${nameOf(me.accused)}.`}</div>`:''}${revealBlock(s)}<section class="panel"><div class="label">YOUR EVIDENCE AND THE SUSPECTS</div>${evidenceRow(me)}${cards(s,{highlight:found})}</section>${board(s)}</div>`;}
   if(s.reveal>=1)return `<div class="join"><h1>The results</h1>${distribution(s)}<p class="lede">Watch the shared screen: the criminal is coming…</p></div>`;
   if(s.phase==='lobby')return `<div class="join">${figure(s.lobby.image,'story-img')}<div class="eyebrow">Welcome, ${name}</div><h1>${esc(s.lobby.title)}</h1><p class="lede">${esc(s.lobby.text)}</p></div>`;
-  if(s.phase==='ended')return `<div class="join"><h1>Time is up!</h1><div class="panel"><p class="lede">${me.accused?`Your accusation: <b>${nameOf(me.accused)}</b>.`:'You did not make an accusation in time.'}</p><p>Watch the shared screen for the results.</p></div>${evidenceRow(me)}</div>`;
-  if(me.step==='story')return storyHTML(s,Math.min(load(pageKey(),0),storyPages(s).length-1));
+  if(s.phase==='briefing')return `<div class="join story">${briefingHTML(s)}<p class="muted">The host reads the briefing. Your investigation starts after it.</p></div>`;
+  if(s.phase==='ended')return `<div class="join"><h1>Time is up!</h1><div class="panel"><p class="lede">${me.accused?`Your accusation: <b>${nameOf(me.accused)}</b>.`:'You did not make an accusation in time.'}</p><p>Watch the shared screen for the results.</p></div>${evidenceRow(me)}<div id="pk-runner"></div></div>`;
   if(showResult){const r=me.lastResult;return `<div class="join"><div class="eyebrow">${esc(r.title)}</div>${r.won?`<h1>Evidence found!</h1>${clueCard(r.clue)}`:`<h1>Evidence lost.</h1><div class="panel"><p class="lede">The puzzle was not solved. This evidence is gone — but four pieces are enough to solve the case.</p></div>`}${evidenceRow(me)}<button type="button" class="primary wide" id="pk-continue">Continue →</button></div>`;}
   if(me.step==='accuse'){
-    if(me.accused)return `<div class="join"><h1>Accusation sent.</h1><div class="panel"><p class="lede">You accused <b>${nameOf(me.accused)}</b>. Wait for the reveal on the shared screen.</p></div>${evidenceRow(me)}</div>`;
+    if(me.accused)return `<div class="join"><h1>Accusation sent.</h1><div class="panel"><p class="lede">You accused <b>${nameOf(me.accused)}</b>. Wait for the reveal on the shared screen.</p></div>${evidenceRow(me)}<div id="pk-runner"></div></div>`;
     return `<div class="join accuse"><h2>Who smashed the pumpkin?</h2><div class="label">YOUR EVIDENCE</div>${evidenceRow(me)}<div class="label">TAP THE CRIMINAL</div>${cards(s,{pick:true})}</div>`;}
   const p=s.puzzle,n=ORDER.indexOf(me.step)+1;let extra;
   if(me.step==='register'){const second=p.confirm&&me.pending;
@@ -141,15 +168,14 @@ function joinHTML(s,me,showResult){
 let lastStep='';
 function renderJoin(app){
   const s=S.state,me=s.me;if(!me)return;
-  const r=me.lastResult,showResult=s.phase==='play'&&r&&!seen().has(r.puzzle)&&!['story','register'].includes(me.step);
-  const page=me.step==='story'?load(pageKey(),0):null;
+  const r=me.lastResult,showResult=s.phase==='play'&&r&&!seen().has(r.puzzle)&&me.step!=='register';
+  const page=s.phase==='briefing'?s.brief:null;
   const key=JSON.stringify([s.run,s.phase,s.reveal,me.step,page,me.pending,me.sigLeft,me.lastSig?.at,me.accused,showResult?r.puzzle:null,s.name,s.media?.length]);
   if(app.dataset.view==='pumpkin'&&app.dataset.key===key)return;
   app.dataset.view='pumpkin';app.dataset.key=key;app.innerHTML=joinHTML(s,me,showResult);
   const stepKey=`${s.phase}-${s.reveal}-${me.step}-${page}-${showResult}`;if(stepKey!==lastStep){if(lastStep)toTop();lastStep=stepKey;}
   const redraw=()=>{app.dataset.key='';renderJoin(app);};
-  app.querySelector('#st-back')?.addEventListener('click',()=>{store(pageKey(),Math.max(0,page-1));redraw();});
-  app.querySelector('#st-next')?.addEventListener('click',e=>{const pages=storyPages(s).length;if(page<pages-1){store(pageKey(),page+1);redraw();}else{e.target.disabled=true;act({action:'story'});}});
+  const rbox=app.querySelector('#pk-runner');if(rbox)runner(rbox);
   app.querySelector('#pk-continue')?.addEventListener('click',()=>{markSeen(r.puzzle);redraw();});
   app.querySelectorAll('.card.pickable').forEach(c=>c.addEventListener('click',e=>{
     if(c.classList.contains('locked'))return;
@@ -172,18 +198,23 @@ function renderScreen(app){const s=S.state;app.dataset.view='pumpkin-screen';
   if(s.reveal>=2){main=revealBlock(s);side=board(s);}
   else if(s.reveal>=1){main=`<div class="screen-split">${figure('who-guilty','story-img')}<div><div class="eyebrow">The Pumpkin Case</div><h1>The detectives have spoken.</h1></div></div>${distribution(s,true)}`;side=join;}
   else if(s.phase==='lobby'){main=`<div class="screen-split">${figure(s.lobby.image,'story-img')}<div><div class="eyebrow">Imperial Detective Office</div><h1>${esc(s.lobby.title)}</h1><p class="lede">${esc(s.lobby.text)}</p></div></div>`;side=`${join}<div class="panel"><div class="label">DETECTIVES</div>${roster(s)}</div>`;}
+  else if(s.phase==='briefing'){main=`<div class="briefing-screen">${briefingHTML(s)}</div>`;side=join;}
   else if(s.phase==='play'){main=`<div class="eyebrow">The Pumpkin Case</div><h1>Investigation in progress</h1><div class="big-clock" id="pk-timer">--:--</div>${progress(s)}`;side=`${join}${cards(s)}`;}
   else{main=`<div class="eyebrow">The Pumpkin Case</div><h1>Time is up!</h1><p class="lede">${s.overview.accused} of ${s.overview.players} detectives made an accusation.</p>${progress(s)}`;side=join;}
   app.innerHTML=`<div class="layout"><section>${main}</section><aside class="stack">${side}</aside></div>`;}
 function renderControl(app){const s=S.state;
   const dur=app.querySelector('#pk-duration')?.value;
-  const buttons=s.phase==='lobby'?`<label for="pk-duration">Game time</label><select id="pk-duration"><option value="720">12 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="480">8 minutes</option><option value="1200">20 minutes</option></select><div class="actions"><button class="primary" data-ctl="start">Start the investigation →</button></div>`
+  const sel=`<label for="pk-duration">Investigation time (starts after the briefing)</label><select id="pk-duration"><option value="300">5 minutes</option><option value="480">8 minutes</option><option value="600">10 minutes</option></select>`;
+  const last=s.brief>=s.pages-1;
+  const buttons=s.phase==='lobby'?`${sel}<div class="actions"><button class="primary" data-ctl="brief">Start the briefing →</button></div>`
+    :s.phase==='briefing'?`<p class="muted">Briefing page ${s.brief+1} / ${s.pages}. Phones and the screen follow you. The clock is not running.</p>${sel}<div class="actions">${s.brief>0?'<button data-page="-1">← Back</button>':''}${last?'<button class="primary" data-ctl="start">Start the investigation →</button>':'<button class="primary" data-page="1">Next →</button>'}</div>`
     :s.phase==='play'?`<div class="pk-clock"><span>TIME LEFT</span><b id="pk-timer">--:--</b></div><div class="actions"><button data-ctl="more">+2 min</button><button class="danger" id="pk-end">End now</button></div>`
     :s.reveal===0?`<div class="actions"><button class="primary" data-ctl="reveal">Show the results →</button></div>`:s.reveal===1?`<div class="actions"><button class="primary" data-ctl="reveal">Reveal the criminal →</button></div>`:'<p class="muted">Case closed.</p>';
   const rows=(s.table??[]).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(STEP_NAMES[r.step])}</td><td>${r.clues}/5</td><td>${r.accused?'✓':''}</td></tr>`).join('');
-  app.innerHTML=`<div class="control-layout"><section><div class="eyebrow">The Pumpkin Case · ${esc(s.phase)}${s.reveal?` · reveal ${s.reveal}`:''}</div><div class="panel"><h3>READ ALOUD</h3><p class="script">${esc(s.script)}</p></div>${s.overview?progress(s):''}${s.reveal>=1?distribution(s):''}${s.reveal>=2?board(s):''}</section><aside class="stack"><div class="panel"><div class="label">HOST CONSOLE</div><p class="muted">${s.participants} / ${s.maxParticipants} connected · join link: ${esc(s.joinUrl)}</p>${buttons}<p class="muted">Culprit: Royal Guard Rex. Players are asked for a nickname when they join.</p></div><div class="panel"><div class="label">DETECTIVES</div><table class="ptable"><thead><tr><th>Name</th><th>Now</th><th>Evidence</th><th>Accused</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="muted">Nobody yet.</td></tr>'}</tbody></table></div></aside></div>`;
+  app.innerHTML=`<div class="control-layout"><section><div class="eyebrow">The Pumpkin Case · ${esc(s.phase)}${s.reveal?` · reveal ${s.reveal}`:''}</div>${s.phase==='briefing'?`<div class="panel briefing-mini">${briefingHTML(s)}</div>`:''}<div class="panel"><h3>READ ALOUD</h3><p class="script">${esc(s.script)}</p></div>${s.phase==='briefing'?'':s.overview?progress(s):''}${s.reveal>=1?distribution(s):''}${s.reveal>=2?board(s):''}</section><aside class="stack"><div class="panel"><div class="label">HOST CONSOLE</div><p class="muted">${s.participants} / ${s.maxParticipants} connected · join link: ${esc(s.joinUrl)}</p>${buttons}<p class="muted">Culprit: Royal Guard Rex. Players are asked for a nickname when they join.</p></div><div class="panel"><div class="label">DETECTIVES</div><table class="ptable"><thead><tr><th>Name</th><th>Now</th><th>Evidence</th><th>Accused</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="muted">Nobody yet.</td></tr>'}</tbody></table></div></aside></div>`;
   if(dur&&app.querySelector('#pk-duration'))app.querySelector('#pk-duration').value=dur;
   app.querySelectorAll('[data-ctl]').forEach(el=>el.addEventListener('click',()=>{el.disabled=true;control(el.dataset.ctl,{seconds:Number(app.querySelector('#pk-duration')?.value)});}));
+  app.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{el.disabled=true;control('page',{page:s.brief+Number(el.dataset.page)});}));
   const end=app.querySelector('#pk-end');if(end)armed(end,'Tap again: end for everybody',()=>control('end'));
 }
 

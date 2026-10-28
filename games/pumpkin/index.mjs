@@ -7,16 +7,17 @@ export const id='pumpkin';
 export const title='The Pumpkin Case';
 export const tagline='Five locked rooms. One smashed pumpkin.';
 export const needsName=true;
-export const images=[lobby.image,...story.map(s=>s.image),'reveal',...suspects.map(s=>s.image),...steps.map(s=>puzzles[s].image),...Object.values(clues).map(c=>c.image)];
+export const images=['runner-vader.png',lobby.image,...story.map(s=>s.image),'reveal',...suspects.map(s=>s.image),...steps.map(s=>puzzles[s].image),...Object.values(clues).map(c=>c.image)];
 // Share of the symbol shape that must match (players never see the number).
 const THRESHOLD=Number(process.env.SIGNATURE_THRESHOLD??0.5);
 const games=steps.filter(s=>s!=='register');
-const ALL=['story',...steps];
+const ALL=steps;
+const PAGES=story.length+suspects.length;
 
-export const fresh=()=>({phase:'lobby',reveal:0,startedAt:null,endsAt:null,endedAt:null,players:{}});
-const blank=()=>({story:false,sig:null,pending:null,sigLeft:3,lastSig:null,results:{},resultAt:{},accused:null,accusedAt:null});
+export const fresh=()=>({phase:'lobby',brief:0,reveal:0,startedAt:null,endsAt:null,endedAt:null,players:{}});
+const blank=()=>({sig:null,pending:null,sigLeft:3,lastSig:null,results:{},resultAt:{},accused:null,accusedAt:null});
 const player=(g,pid)=>g.players[pid]??=blank();
-const stepOf=p=>!p.story?'story':!p.sig?'register':games.find(s=>!p.results[s])??'accuse';
+const stepOf=p=>!p.sig?'register':games.find(s=>!p.results[s])??'accuse';
 const clueOf=s=>({id:puzzles[s].clue,...clues[puzzles[s].clue]});
 const cluesOf=p=>games.filter(s=>p.results[s]==='won').map(clueOf);
 
@@ -26,7 +27,7 @@ export function tick(g){if(g.phase==='play'&&Date.now()>=g.endsAt){g.phase='ende
 // Everyone who joined counts as a player, even before their first move.
 function overview(g,names,members){
   const ps=members.map(pid=>[pid,g.players[pid]??blank()]);
-  const done=s=>ps.filter(([,p])=>s==='story'?p.story:s==='register'?p.sig:p.results[s]).length;
+  const done=s=>ps.filter(([,p])=>s==='register'?p.sig:p.results[s]).length;
   const counts=Object.fromEntries(suspects.map(s=>[s.id,ps.filter(([,p])=>p.accused===s.id).length]));
   const board=ps.filter(([,p])=>p.accused===culprit).sort((a,b)=>a[1].accusedAt-b[1].accusedAt).slice(0,5)
     .map(([pid,p])=>({name:names[pid]??'Detective',ms:p.accusedAt-g.startedAt,clues:cluesOf(p).length}));
@@ -34,7 +35,7 @@ function overview(g,names,members){
 }
 
 export function snapshot(g,{who,host,member,names,members}){
-  const data={phase:g.phase,reveal:g.reveal,endsAt:g.endsAt,startedAt:g.startedAt,lobby,story,traits,
+  const data={phase:g.phase,brief:g.brief,pages:PAGES,reveal:g.reveal,endsAt:g.endsAt,startedAt:g.startedAt,lobby,story,traits,
     suspects:suspects.map(({id,name,image,motive,traits:t})=>({id,name,image,motive,traits:t}))};
   if(member){
     const p=g.players[who.id]??blank(),step=stepOf(p);
@@ -44,14 +45,15 @@ export function snapshot(g,{who,host,member,names,members}){
       evidence:games.map(s=>p.results[s]==='won'?{state:'won',...clueOf(s)}:{state:p.results[s]??'open'}),
       last:games.filter(s=>p.results[s]).sort((a,b)=>p.resultAt[b]-p.resultAt[a])[0]??null};
     if(data.me.last){const s=data.me.last,won=p.results[s]==='won';data.me.lastResult={puzzle:s,title:puzzles[s].title,won,clue:won?clueOf(s):null};}
-    data.puzzle=['story','accuse'].includes(step)?null:{id:step,...puzzles[step],confirm:confirmSymbol};
+    data.puzzle=step==='accuse'?null:{id:step,...puzzles[step],confirm:confirmSymbol};
   }
   if(host||g.reveal>=1||!member)data.overview=overview(g,names,members);
   if(g.reveal>=2){data.reveal_={...reveal,culprit};if(member)data.me.correct=g.players[who.id]?.accused===culprit;}
   if(host){
-    data.script=g.reveal>=2?`${reveal.text}\n\n${reveal.explain}`:g.phase==='lobby'?script:g.phase==='play'?'Everybody plays alone: briefing, five puzzles, accusation. Watch the progress on the screen. Use "+2 min" if many people are close to the end.':'Time is up. Show the results, then reveal the criminal.';
+    const page=g.brief<story.length?story[g.brief]:null,sus=suspects[g.brief-story.length];
+    data.script=g.reveal>=2?`${reveal.text}\n\n${reveal.explain}`:g.phase==='lobby'?script:g.phase==='briefing'?(page?`${page.text}${page.quote?`\n\nThe Emperor: "${page.quote}"`:''}`:`${sus.name}. ${sus.motive} Marks: ${sus.traits.map(t=>t[1]).join('; ')}.`):g.phase==='play'?'Everybody plays alone: five puzzles, then the accusation. Watch the progress on the screen. Use "+2 min" if many people are close to the end.':'Time is up. Show the results, then reveal the criminal.';
     data.roster=members.map(pid=>names[pid]).filter(Boolean);
-    data.table=members.map(pid=>{const p=g.players[pid];return {name:names[pid]??'—',step:p?stepOf(p):'story',clues:p?cluesOf(p).length:0,accused:!!p?.accused};});
+    data.table=members.map(pid=>{const p=g.players[pid];return {name:names[pid]??'—',step:p?stepOf(p):'register',clues:p?cluesOf(p).length:0,accused:!!p?.accused};});
   }
   return data;
 }
@@ -61,8 +63,7 @@ export function action(g,who,b){
   const p=player(g,who.id),step=stepOf(p);
   const stroke=()=>{if(!validStroke(b.points))fail(400,'Invalid drawing.');return b.points;};
   switch(b.action){
-    case 'story':p.story=true;return 'briefing done';
-    case 'sigRegister':{if(step!=='register')fail(409,'Finish the briefing first.');if(p.pending&&confirmSymbol)fail(409,'Draw it again to confirm.');const pts=stroke();if(!bigEnough(pts))fail(400,'Draw a bigger shape.');
+    case 'sigRegister':{if(p.pending&&confirmSymbol)fail(409,'Draw it again to confirm.');const pts=stroke();if(!bigEnough(pts))fail(400,'Draw a bigger shape.');
       if(confirmSymbol){p.pending=normalize(pts);p.lastSig=null;return 'symbol drawn';}
       p.sig=normalize(pts);p.lastSig={kind:'register',ok:true,at:Date.now()};return 'symbol registered';}
     case 'sigConfirm':{if(p.sig||!p.pending)fail(409,'Draw your symbol first.');const ok=similarity(p.pending,stroke())>=THRESHOLD;
@@ -80,7 +81,9 @@ export function action(g,who,b){
 
 export function control(g,b){
   switch(b.action){
-    case 'start':if(g.phase!=='lobby')fail(409,'Already started.');if(![300,480,600,720,900,1200].includes(b.seconds))fail(400,'Choose a valid duration.');g.phase='play';g.startedAt=Date.now();g.endsAt=g.startedAt+b.seconds*1000;return 'start';
+    case 'brief':if(g.phase!=='lobby')fail(409,'Already started.');g.phase='briefing';g.brief=0;return 'briefing';
+    case 'page':if(g.phase!=='briefing')fail(409,'Not in the briefing.');if(!Number.isInteger(b.page)||b.page<0||b.page>=PAGES)fail(400,'Invalid page.');g.brief=b.page;return 'page '+b.page;
+    case 'start':if(!['lobby','briefing'].includes(g.phase))fail(409,'Already started.');if(![300,480,600,720,900,1200].includes(b.seconds))fail(400,'Choose a valid duration.');g.phase='play';g.startedAt=Date.now();g.endsAt=g.startedAt+b.seconds*1000;return 'start';
     case 'more':if(g.phase!=='play')fail(409,'The game is not running.');g.endsAt+=120000;return '+2 min';
     case 'end':if(g.phase!=='play')fail(409,'The game is not running.');g.phase='ended';g.endedAt=Date.now();return 'end';
     case 'reveal':if(g.phase!=='ended')fail(409,'End the game first.');if(g.reveal>=2)fail(409,'Already revealed.');g.reveal++;return 'reveal '+g.reveal;

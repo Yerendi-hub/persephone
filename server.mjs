@@ -12,7 +12,8 @@ import * as pumpkin from './games/pumpkin/index.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const GAMES={persephone,pumpkin};
 // Only images that actually exist are served and preloaded, so a game can ship before all art is ready.
-const MEDIA=Object.fromEntries(Object.values(GAMES).map(g=>[g.id,g.images.filter(n=>fs.existsSync(path.join(root,'games',g.id,'img',n+'.jpg')))]));
+const file=n=>/\.(jpg|png)$/.test(n)?n:n+'.jpg';
+const MEDIA=Object.fromEntries(Object.values(GAMES).map(g=>[g.id,g.images.map(file).filter(n=>fs.existsSync(path.join(root,'games',g.id,'img',n)))]));
 const SCHEMA=5;
 
 export function createApp(config={}) {
@@ -45,7 +46,7 @@ export function createApp(config={}) {
     const host=who?.role==='host',member=state.members.includes(who?.id),e=engine();
     const data={run:state.run,revision:state.revision,stage:state.stage,serverNow:Date.now(),participants:state.members.length,maxParticipants,joinUrl:publicUrl+'/join',
       joined:host||member,game:state.game,gameTitle:e?.title??null,needsName:!!e?.needsName,name:member?state.names[who.id]??null:null,
-      media:e?MEDIA[e.id].map(n=>`/img/${e.id}/${n}.jpg`):[]};
+      media:e?MEDIA[e.id].map(n=>`/img/${e.id}/${n}`):[]};
     if(host){data.games=Object.values(GAMES).map(g=>({id:g.id,title:g.title,tagline:g.tagline}));data.code=state.code;data.audit=state.audit.slice(-12);}
     if(e)Object.assign(data,e.snapshot(state.g,{who,host,member,names:state.names,members:state.members}));
     if(!e&&host)data.script='Choose a game. Phones and the shared screen wait on a neutral "starting soon" page until you do.';
@@ -116,8 +117,8 @@ export function createApp(config={}) {
         fail(404,'Not found.');
       }
       if(req.method==='GET'){
-        const img=/^\/img\/([a-z]+)\/([a-z0-9-]+)\.jpg$/.exec(u.pathname);
-        if(img&&MEDIA[img[1]]?.includes(img[2])){res.setHeader('Content-Type','image/jpeg');res.setHeader('Cache-Control','public, max-age=86400');return res.end(fs.readFileSync(path.join(root,'games',img[1],'img',img[2]+'.jpg')));}
+        const img=/^\/img\/([a-z]+)\/([a-z0-9-]+\.(jpg|png))$/.exec(u.pathname);
+        if(img&&MEDIA[img[1]]?.includes(img[2])){res.setHeader('Content-Type',img[3]==='png'?'image/png':'image/jpeg');res.setHeader('Cache-Control','public, max-age=86400');return res.end(fs.readFileSync(path.join(root,'games',img[1],'img',img[2])));}
         const name=STATIC[u.pathname];if(name){res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');return res.end(fs.readFileSync(path.join(root,'public',name)));}
       }
       fail(404,'Not found.');
