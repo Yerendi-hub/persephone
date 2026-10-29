@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 import {fail} from './lib/util.mjs';
 import * as persephone from './games/persephone/index.mjs';
 import * as pumpkin from './games/pumpkin/index.mjs';
@@ -16,6 +17,7 @@ const GAMES={persephone,pumpkin,shadow};
 const file=n=>/\.(jpg|png)$/.test(n)?n:n+'.jpg';
 const MEDIA=Object.fromEntries(Object.values(GAMES).map(g=>[g.id,g.images.map(file).filter(n=>fs.existsSync(path.join(root,'games',g.id,'img',n)))]));
 const SCHEMA=5;
+const qrcode=createRequire(import.meta.url)('./lib/vendor/qrcode.cjs');
 
 export function createApp(config={}) {
   const password=config.password??process.env.HOST_PASSWORD;
@@ -61,6 +63,8 @@ export function createApp(config={}) {
   async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>16384)fail(413,'Request too large.');}let v;try{v=JSON.parse(raw||'{}');}catch{fail(400,'Invalid JSON.');}if(!v||typeof v!=='object'||Array.isArray(v))fail(400,'Expected a JSON object.');return v;}
   function respond(res,status,data){res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));}
   const STATIC={'/':'index.html','/join':'index.html','/screen':'index.html','/control':'index.html','/app.js':'app.js','/lib.js':'lib.js','/persephone.js':'persephone.js','/pumpkin.js':'pumpkin.js','/shadow.js':'shadow.js','/style.css':'style.css'};
+  // QR code of the join link for the shared screen (generated once; the link never changes at runtime).
+  const qrSvg=(()=>{const q=qrcode(0,'M');q.addData(publicUrl+'/join');q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true});})();
   const archive=()=>fs.copyFileSync(file,path.join(dir,`archive-${state.run}.json`));
 
   const server=http.createServer(async(req,res)=>{
@@ -68,6 +72,7 @@ export function createApp(config={}) {
     try{
       const u=new URL(req.url,'http://localhost'),who=identity(req);
       if(req.method==='GET'&&u.pathname==='/healthz')return respond(res,200,{ok:true});
+      if(req.method==='GET'&&u.pathname==='/qr.svg'){res.setHeader('Content-Type','image/svg+xml');res.setHeader('Cache-Control','public, max-age=3600');return res.end(qrSvg);}
       if(req.method==='GET'&&u.pathname==='/api/state')return respond(res,200,snapshot(who));
       if(req.method==='GET'&&u.pathname==='/api/events'){
         if(streams.size>=maxParticipants+250)fail(503,'Connection capacity reached. Refresh shortly.');

@@ -3,23 +3,24 @@ export const title='Night of Shadows';
 export const lobby={image:'intro',title:'Night of Shadows',text:'Wait for the investigation to begin…'};
 
 export const intro={image:'intro',eyebrow:'Station Wraith · Festival of Shadows',title:'Night of Shadows',
-  text:'High above a dead, ruined planet, the old research station Wraith drifts in the dark. Tonight is the Festival of Shadows: glowfruit carved like masks of ancient dark lords, red emergency lights, space wind howling behind the windows.\n\nYou are an independent arbiter — a bounty hunter hired to keep the peace at the party.'};
+  text:'High above a dead, ruined planet, the old research station Wraith drifts in the dark. Tonight is the Festival of Shadows: glowfruit carved like masks of ancient dark lords, red emergency lights, space wind howling behind the windows.\n\nYou are the Arbiters — a team of independent judges, hired to keep the peace at the party and to judge any crime on the station.'};
 export const cabin={image:'cabin',eyebrow:'The captain’s cabin',title:'Baron Malrec is dead.',
   text:'The Baron — an artefact dealer and a blackmailer — sits in his chair with a Festival mask of horror on his face.\n\nA cup of punch on the desk. Dark marks on his neck. A burned blaster hole in his chest. The heart stimulator in his chair has been hacked.\n\nFour guests were near the cabin. Nobody could leave through the airlock.'};
 
+// tag: one word for the vote tiles. traits: what the Arbiters know about them (shown on the suspect pages).
 export const suspects={
-  seraphine:{name:'Lady Seraphine',role:'A fallen noblewoman',image:'suspect-seraphine',
-    motive:'The Baron ruined her noble house and sold her family treasures at auction.',
-    alibi:'I only came to drink a toast to the end of his business, and I left. He was fine when I drank!'},
-  medi7:{name:'MEDI-7 “Seven”',role:'A reprogrammed medical droid',image:'suspect-medi7',
-    motive:'After the auction, the Baron planned to wipe its memory and sell it for parts.',
-    alibi:'My protocols forbid harming living beings. I only tried to give him something to calm his breathing.'},
-  corvin:{name:'Corvin',role:'Smuggler and pilot',image:'suspect-corvin',
-    motive:'The Baron took his ship and threatened to hand him over to the Vorn cartel.',
-    alibi:'Yes, we fought. My blaster went off by accident — into the wall — when he came at me with a knife!'},
-  ysolde:{name:'Ysolde',role:'A dark mystic, a Night Witch of Draxa',image:'suspect-ysolde',
-    motive:'The Baron stole her family’s ancient shadow relic — on the Festival night, of all nights.',
-    alibi:'The spirits were restless tonight. I only put a curse of fear on him. I never touched him.'}
+  seraphine:{name:'Lady Seraphine',tag:'Alchemist',role:'A fallen noblewoman',image:'suspect-seraphine',action:'act-seraphine',
+    traits:['Studied alchemy for years — she knows every poison in the galaxy.','Carries a jewelled flask everywhere.','The Baron ruined her noble house.'],
+    motive:'The Baron ruined her noble house and sold her family treasures at auction.'},
+  medi7:{name:'MEDI-7 “Seven”',tag:'Medical droid',role:'A reprogrammed medical droid',image:'suspect-medi7',action:'act-medi7',
+    traits:['Can plug into any medical device — even a heart stimulator.','Knows the Baron’s body better than the Baron does.','Was going to be wiped and sold for parts.'],
+    motive:'After the auction, the Baron planned to wipe its memory and sell it for parts.'},
+  corvin:{name:'Corvin',tag:'Gunslinger',role:'Smuggler and pilot',image:'suspect-corvin',action:'act-corvin',
+    traits:['The fastest hand with a pocket blaster on the station.','Panics easily in the dark.','The Baron took his ship.'],
+    motive:'The Baron took his ship and threatened to hand him over to the Vorn cartel.'},
+  ysolde:{name:'Ysolde',tag:'Night Witch',role:'A dark mystic from Draxa',image:'suspect-ysolde',action:'act-ysolde',
+    traits:['Her dark power can crush a throat without a single touch.','Burns grey ritual dust from Draxa.','The Baron stole her family’s ancient relic.'],
+    motive:'The Baron stole her family’s ancient shadow relic — on the Festival night, of all nights.'}
 };
 export const suspectOrder=['seraphine','medi7','corvin','ysolde'];
 
@@ -44,14 +45,19 @@ export const evidence={
 };
 
 export const votes={
-  accuse1:{question:'Who do you accuse first?'},
-  accuse2:{question:'Who do you accuse now?'},
-  verdict:{question:'Your verdict: who killed Baron Malrec?',extra:[['none','None of them'],['all','All four of them']],tie:'none'}
+  accuse1:{title:'Who do you accuse first?',text:'Four guests, four reasons to hate the Baron. Choose who has to explain themselves first.',question:'Who do you accuse first?'},
+  accuse2:{title:'Someone had to do it.',text:'Everyone has an alibi. But someone in this room killed the Baron. Who do you choose now?',question:'Who do you accuse now?'},
+  verdict:{title:'It’s time for the final verdict.',text:'Based on the evidence — who will you arrest?',question:'Who will you arrest?',extra:[['none','None of them'],['all','All four of them']],tie:'none'}
+};
+// Slide shown after each accusation vote, before the circle of speeches.
+export const accusedSlide={
+  accuse1:name=>({eyebrow:'Accusation 1',title:`You accused ${name}.`,text:`Let’s hear what ${name} has to say.`}),
+  accuse2:name=>({eyebrow:'Accusation 2',title:`Based on the evidence, you accuse ${name}.`,text:`And ${name} says…`})
 };
 
 export const reveal={image:'terminal',eyebrow:'The terminal comes back to life',title:'The last 15 minutes',
   text:'The station’s medical terminal gets full power again. It plays the chair’s biosensor record from the Baron’s last 15 minutes.',
-  timeline:[
+  timeline:[ // images: the action shot of each suspect
     ['seraphine','Lady Seraphine poured swamp worm venom into his punch. It paralysed him — he could not call the guards.'],
     ['medi7','MEDI-7 used the paralysis and loaded malware into his heart stimulator. His heart lost its rhythm.'],
     ['ysolde','Ysolde came in and crushed his throat with dark power. No more air.'],

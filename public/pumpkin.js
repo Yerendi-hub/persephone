@@ -1,5 +1,5 @@
 // View: "The Pumpkin Case" — solo puzzles on each phone; the shared screen shows the clock, progress and the reveal.
-import {S,esc,act,control,toTop,figure,mmss,now,armed} from './lib.js';
+import {S,esc,act,control,toTop,figure,mmss,now,armed,joinBox} from './lib.js';
 
 const STEP_NAMES={register:'Detective symbol',memory:'Lights',matching:'Forensic droid',pattern:'Terminal',pipes:'MOP-3 power',vault:'Evidence vault',accuse:'Accusation'};
 const ORDER=['register','memory','matching','pattern','pipes','vault'];
@@ -193,7 +193,7 @@ function renderJoin(app){
 function progress(s){const o=s.overview;return `<section class="panel"><div class="label">DETECTIVES AT WORK · ${o.players} PLAYING · ${o.accused} ACCUSATIONS</div>${o.steps.map(x=>`<div class="result"><strong>${esc(STEP_NAMES[x.id])}</strong><small>${x.done} / ${o.players}</small><progress value="${x.done}" max="${Math.max(1,o.players)}"></progress></div>`).join('')}</section>`;}
 const roster=s=>s.roster?.length?`<div class="roster">${s.roster.map(n=>`<span class="chip">${esc(n)}</span>`).join('')}</div>`:'<p class="muted">Nobody yet.</p>';
 function renderScreen(app){const s=S.state;app.dataset.view='pumpkin-screen';
-  const join=`<div class="panel"><div class="label">JOIN</div><p>Open on your phone:</p><div class="join-url">${esc(s.joinUrl.replace(/^https?:\/\//,''))}</div><span class="muted">${s.participants} detectives connected</span></div>`;
+  const join=joinBox('detectives');
   let main,side;
   if(s.reveal>=2){main=revealBlock(s);side=board(s);}
   else if(s.reveal>=1){main=`<div class="screen-split">${figure('who-guilty','story-img')}<div><div class="eyebrow">The Pumpkin Case</div><h1>The detectives have spoken.</h1></div></div>${distribution(s,true)}`;side=join;}

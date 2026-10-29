@@ -1,16 +1,16 @@
 // Game engine: "Night of Shadows" — host-paced story, three room votes, a fixed circle of accusations.
 import {fail,top,validIndex} from '../../lib/util.mjs';
-import {title as gameTitle,lobby,intro,cabin,suspects,suspectOrder,circle,speeches,evidence,votes,reveal,verdictText} from './content.mjs';
+import {title as gameTitle,lobby,intro,cabin,suspects,suspectOrder,circle,speeches,evidence,votes,reveal,verdictText,accusedSlide} from './content.mjs';
 
 export const id='shadow';
 export const title=gameTitle;
 export const tagline='One dead baron. Four guests. Nobody left the station.';
 export const needsName=false;
-export const images=[...new Set([lobby.image,intro.image,cabin.image,reveal.image,'ending',...suspectOrder.map(s=>suspects[s].image)])];
+export const images=[...new Set([lobby.image,intro.image,cabin.image,reveal.image,'confront',...suspectOrder.flatMap(s=>[suspects[s].image,suspects[s].action])])];
 
 const speechesAfter=(poll,round)=>[0,1,2,3].map(pos=>({k:'speech',poll,round,pos}));
 const scenes=[{k:'page',page:intro},{k:'page',page:cabin},...suspectOrder.map(s=>({k:'suspect',id:s})),
-  {k:'vote',poll:'accuse1'},...speechesAfter('accuse1',0),{k:'vote',poll:'accuse2'},...speechesAfter('accuse2',1),
+  {k:'vote',poll:'accuse1'},{k:'accused',poll:'accuse1'},...speechesAfter('accuse1',0),{k:'vote',poll:'accuse2'},{k:'accused',poll:'accuse2'},...speechesAfter('accuse2',1),
   {k:'vote',poll:'verdict'},{k:'verdict'},{k:'timeline'},{k:'ending'}];
 const optionsFor=poll=>poll==='verdict'?[...suspectOrder,...votes.verdict.extra.map(e=>e[0])]:suspectOrder;
 const labelOf=id=>suspects[id]?.name??votes.verdict.extra.find(e=>e[0]===id)?.[1]??id;
@@ -30,13 +30,14 @@ function speechContent(g,s){const {who,next}=speakerOf(g,s),sp=speeches[who],rou
   return {kind:'speech',speaker:who,name:suspects[who].name,image:suspects[who].image,round:round+1,defence:sp.defence[round],accuse:sp.accuse[round],evidence:evidence[next][round],accused:next,accusedName:suspects[next].name};}
 function contentOf(g,s){
   if(s.k==='page')return {kind:'page',...s.page};
-  if(s.k==='suspect'){const x=suspects[s.id];return {kind:'suspect',id:s.id,eyebrow:`Suspect ${suspectOrder.indexOf(s.id)+1} of 4`,title:x.name,role:x.role,image:x.image,motive:x.motive,alibi:x.alibi};}
-  if(s.k==='vote')return {kind:'vote',eyebrow:s.poll==='verdict'?'The verdict':`Accusation ${s.poll==='accuse1'?1:2} of 2`,title:votes[s.poll].question};
+  if(s.k==='suspect'){const x=suspects[s.id];return {kind:'suspect',id:s.id,eyebrow:`Suspect ${suspectOrder.indexOf(s.id)+1} of 4 · ${x.tag}`,title:x.name,role:x.role,image:x.image,traits:x.traits};}
+  if(s.k==='vote')return {kind:'vote',eyebrow:s.poll==='verdict'?'The verdict':`Accusation ${s.poll==='accuse1'?1:2} of 2`,title:votes[s.poll].title,text:votes[s.poll].text};
+  if(s.k==='accused'){const w=winner(g,s.poll),x=suspects[w];return {kind:'accused',who:w,image:x.image,...accusedSlide[s.poll](x.name)};}
   if(s.k==='speech')return speechContent(g,s);
   const v=winner(g,'verdict');
   if(s.k==='verdict')return {kind:'verdict',verdict:v,title:v==='all'?'All four.':v==='none'?'Nobody?':`${labelOf(v)}?`,text:v==='all'?verdictText.all:v==='none'?verdictText.none:verdictText.one(labelOf(v))};
-  if(s.k==='timeline')return {kind:'timeline',...reveal,timeline:reveal.timeline.map(([w,t])=>({who:w,name:suspects[w].name,image:suspects[w].image,text:t}))};
-  return {kind:'ending',image:'ending',title:'All of them are murderers.',text:`${reveal.truth}\n\n${reveal.ending}`,correct:v==='all'};
+  if(s.k==='timeline')return {kind:'timeline',...reveal,timeline:reveal.timeline.map(([w,t])=>({who:w,name:suspects[w].name,image:suspects[w].action,text:t}))};
+  return {kind:'ending',image:'confront',title:'All of them are murderers.',text:`${reveal.truth}\n\n${reveal.ending}`,correct:v==='all'};
 }
 // Evidence already pointed at in the speeches so far (shown in the players' case file).
 const evidenceSoFar=g=>scenes.slice(0,g.scene+1).filter(s=>s.k==='speech').map(s=>{const c=speechContent(g,s);return {who:c.accused,name:c.accusedName,text:c.evidence};});
@@ -47,15 +48,15 @@ export function snapshot(g,{who,host,member}){
   if(s){data.content=contentOf(g,s);data.evidence=evidenceSoFar(g);}
   if(s?.k==='vote'){const ids=r?.options??optionsFor(s.poll),closed=r?.status==='closed';
     data.poll={id:s.poll,question:votes[s.poll].question,status:r?.status??'ready',deadline:r?.deadline,myVote:r?.votes[who?.id]??null,total:Object.keys(r?.votes??{}).length,final:s.poll==='verdict',
-      options:ids.map(o=>({id:o,label:labelOf(o)}))};
+      options:ids.map(o=>({id:o,label:labelOf(o),tag:suspects[o]?.tag??null,image:suspects[o]?.image??null}))};
     if(host||closed)data.poll.counts=counts(r??{options:ids,votes:{}});
     if(closed)data.poll.winner=r.winner;}
   if(member&&g.polls.verdict?.status==='closed'){const v=g.polls.verdict.votes[who.id];data.myVerdict=v===undefined?null:{label:labelOf(g.polls.verdict.options[v]),correct:g.polls.verdict.options[v]==='all'};}
   if(host){
     const c=data.content;
     data.script=!s?'Players see "Wait for the investigation to begin". Press Start when everybody is in.':
-      c.kind==='speech'?`${c.name}: "${c.defence} ${c.accuse} ${c.evidence}"`:c.kind==='suspect'?`${c.title}, ${c.role.toLowerCase()}. Motive: ${c.motive} Alibi: "${c.alibi}"`:
-      c.kind==='vote'?`${c.title} Open the vote.${s.poll==='verdict'?' Options: any suspect, none of them, or all four. A tie means "none of them".':' The person chosen defends themselves and starts the circle.'}`:
+      c.kind==='speech'?`${c.name}: "${c.defence} ${c.accuse} ${c.evidence}"`:c.kind==='suspect'?`${c.title}, ${c.role.toLowerCase()}. ${c.traits.join(' ')}`:c.kind==='accused'?`${c.title} ${c.text}`:
+      c.kind==='vote'?`${c.title} ${c.text} Open the vote.${s.poll==='verdict'?' Options: any suspect, none of them, or all four. A tie means "none of them".':' The person chosen defends themselves and starts the circle.'}`:
       c.kind==='timeline'?`${c.text}\n\n${c.timeline.map((t,i)=>`${i+1}. ${t.text}`).join('\n')}\n\n${c.autopsy}`:`${c.title}\n\n${c.text}`;
     data.answer='All four. Circle: MEDI-7 → Corvin → Ysolde → Seraphine → MEDI-7.';
   }

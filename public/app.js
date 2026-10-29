@@ -1,5 +1,5 @@
 // Router and shared chrome: neutral lobby, game selection, nicknames, media preloading.
-import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost,armed,headerStatus} from './lib.js';
+import {S,hooks,esc,post,notice,receive,refresh,connect,control,isHost,armed,headerStatus,joinBox} from './lib.js';
 import * as persephone from './persephone.js';
 import * as pumpkin from './pumpkin.js';
 import * as shadow from './shadow.js';
@@ -21,7 +21,6 @@ function chrome(){const s=S.state,[sig,name,sub]=BRAND[s.game]??BRAND.null;
   const b=document.querySelector('.brand');const html=`<span class="sigil">${esc(sig)}</span> ${esc(name)} <small>${esc(sub)}</small>`;if(b.innerHTML!==html)b.innerHTML=html;}
 const login=()=>`<form id="login" class="login panel"><div class="eyebrow">Authorized personnel</div><h1>Host login</h1><p>Sign in to run the game.</p><label for="password">Host password</label><input id="password" type="password" autocomplete="current-password" required minlength="12"><button class="primary">Enter →</button></form>`;
 const soon=extra=>`<section class="soon"><div class="eyebrow">Halloween at the office</div><h1>The Halloween game<br><em>starts soon.</em></h1><p class="lede">Grab your phone. When the host is ready, the game appears here by itself.</p>${extra??''}</section>`;
-const joinBox=()=>`<div class="panel joinbox"><div class="label">JOIN</div><p>Open on your phone:</p><div class="join-url">${esc(S.state.joinUrl.replace(/^https?:\/\//,''))}</div><span class="muted">${S.state.participants} people connected</span></div>`;
 function nameForm(){return `<div class="join"><div class="eyebrow">${esc(S.state.gameTitle)}</div><h1>Who are you, detective?</h1><form id="nameform" class="panel"><label for="nick">Your nickname (2–20 characters)</label><input id="nick" maxlength="20" autocomplete="nickname" required placeholder="e.g. Detective Pumpkin"><button class="primary">That’s me →</button><p class="muted">Your nickname can appear on the shared screen.</p></form></div>`;}
 function gamebar(){const s=S.state;return `<section class="panel gamebar"><div class="label">GAME</div><div class="actions">${s.games.map(g=>`<button data-select="${g.id}" class="${s.game===g.id?'primary':''}" title="${esc(g.tagline)}">${esc(g.title)}</button>`).join('')}<button data-select="" class="${s.game?'':'primary'}">“Starts soon” page</button></div><p class="muted">Changing the game starts it fresh; phones follow automatically. ${s.participants} connected.</p><div class="actions"><a href="/screen" target="_blank" rel="noopener">Presentation ↗</a><button id="logout">Sign out</button></div>${s.game?`<details class="danger-zone"><summary>Restart this game</summary><p>Archives this run and clears all progress. Everyone re-joins automatically.</p><label for="reset-confirm">Type RESET</label><input id="reset-confirm" autocomplete="off"><button class="danger" id="reset">Archive & restart</button></details>`:''}</section>`;}
 

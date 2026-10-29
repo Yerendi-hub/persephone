@@ -28,4 +28,6 @@ export const imgSrc=name=>name?(S.state?.media??[]).find(m=>m===`/img/${S.state.
 export const figure=(name,cls='scene-img')=>{const src=imgSrc(name);return src?`<figure class="${cls}"><img src="${src}" alt="" loading="eager"></figure>`:'';};
 // In-page two-step confirmation (no browser dialogs): first tap arms the button, second tap within 4 s runs fn.
 export function armed(el,question,fn){el.addEventListener('click',e=>{e.preventDefault();if(el.dataset.armed){clearTimeout(el._t);delete el.dataset.armed;fn();return;}el.dataset.armed='1';el._orig=el.textContent;el.textContent=question;el.classList.add('armed');el._t=setTimeout(()=>{delete el.dataset.armed;el.textContent=el._orig;el.classList.remove('armed');},4000);});}
+// Join panel for the shared screen: QR code + short link + connected count.
+export const joinBox=(who='people')=>`<div class="panel joinbox"><div class="label">JOIN</div><img class="qr" src="/qr.svg" alt="QR code to join"><div class="join-url">${esc(S.state.joinUrl.replace(/^https?:\/\//,''))}</div><span class="muted">${S.state.participants} ${who} connected</span></div>`;
 export const mmss=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${pad(Math.floor(s/60))}:${pad(s%60)}`;};
